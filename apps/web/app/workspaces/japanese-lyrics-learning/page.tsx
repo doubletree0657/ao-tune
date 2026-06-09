@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import LyricsDraftStudio from "./lyrics-draft-studio";
+
 export const metadata: Metadata = {
   title: "Japanese Lyrics Learning | AoTune",
   description:
@@ -25,37 +27,6 @@ const learningSteps = [
     title: "Listen and return",
     description:
       "Keep sing-along observations and personal progress for repeated practice.",
-  },
-];
-
-const learningFields = [
-  {
-    label: "Original",
-    value: "青い風が窓辺を通る",
-    lang: "ja",
-  },
-  {
-    label: "Romaji",
-    value: "Aoi kaze ga madobe o tooru",
-  },
-  {
-    label: "Approximate Chinese Pronunciation",
-    value: "啊哦伊 卡泽 嘎 妈多贝 哦 托哦鲁",
-    note: "A personal reading aid, not a substitute for listening to native audio.",
-  },
-  {
-    label: "Meaning",
-    value: "A blue breeze passes by the window.",
-  },
-  {
-    label: "Pronunciation Notes",
-    value:
-      "Keep the vowels in aoi distinct. Let the long sound in tooru remain even and unhurried.",
-  },
-  {
-    label: "Sing-along Notes",
-    value:
-      "Take a quiet breath before aoi. Carry the phrase forward without breaking after kaze.",
   },
 ];
 
@@ -102,35 +73,18 @@ export default function JapaneseLyricsLearningPage() {
         </ol>
       </section>
 
-      <section className="workspace-section" aria-labelledby="learning-card-heading">
+      <section className="workspace-section" aria-labelledby="draft-card-heading">
         <div className="section-heading">
-          <p className="eyebrow">Mock artifact</p>
-          <h2 id="learning-card-heading">Lyrics Learning Card</h2>
+          <p className="eyebrow">Local draft</p>
+          <h2 id="draft-card-heading">Draft your own line</h2>
           <p>
-            A static example using an original fictional line. Future cards will
-            be created from lyrics supplied by the user.
+            Paste or type a lyric excerpt you provide, then shape pronunciation,
+            meaning, and sing-along notes around it. Drafts stay in this browser
+            tab and are cleared when the page refreshes.
           </p>
         </div>
 
-        <article className="lyrics-card" aria-label="Example lyrics learning card">
-          <div className="lyrics-card-header">
-            <div>
-              <p className="artifact-kicker">Practice line 01</p>
-              <h3>Window breeze</h3>
-            </div>
-            <span>Mock content</span>
-          </div>
-
-          <dl className="learning-fields">
-            {learningFields.map((field) => (
-              <div className="learning-field" key={field.label}>
-                <dt>{field.label}</dt>
-                <dd lang={field.lang}>{field.value}</dd>
-                {field.note ? <p>{field.note}</p> : null}
-              </div>
-            ))}
-          </dl>
-        </article>
+        <LyricsDraftStudio />
       </section>
 
       <section className="workspace-section" aria-labelledby="progress-heading">
