@@ -1,9 +1,12 @@
+import Link from "next/link";
+
 const workspaces = [
   {
     name: "Japanese Lyrics Learning",
     description:
       "Prepare pronunciation, meaning notes, and sing-along practice from lyrics.",
     status: "Phase 1 target",
+    href: "/workspaces/japanese-lyrics-learning",
   },
   {
     name: "Japanese Music Research",
@@ -60,6 +63,11 @@ export default function Home() {
               </span>
               <h3>{workspace.name}</h3>
               <p>{workspace.description}</p>
+              {workspace.href ? (
+                <Link className="card-link" href={workspace.href}>
+                  Open workspace <span aria-hidden="true">→</span>
+                </Link>
+              ) : null}
             </article>
           ))}
         </div>
