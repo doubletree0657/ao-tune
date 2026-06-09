@@ -285,6 +285,12 @@ h2 {
   font-weight: 400;
 }
 
+.artifact-artist {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .lyrics-card-header > span {
   padding: 0.35rem 0.65rem;
   border: 1px solid var(--border);
@@ -376,6 +382,7 @@ h2 {
 }
 
 .draft-form-heading button:focus-visible,
+.draft-input input:focus-visible,
 .draft-input textarea:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
@@ -395,6 +402,27 @@ h2 {
   gap: 1.25rem;
 }
 
+.metadata-fields {
+  margin: 0 0 1.5rem;
+  padding: 0;
+  border: 0;
+}
+
+.metadata-fields legend {
+  margin-bottom: 0.75rem;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
 .draft-input label {
   display: block;
   margin-bottom: 0.45rem;
@@ -403,12 +431,12 @@ h2 {
   font-weight: 700;
 }
 
+.draft-input input,
 .draft-input textarea {
   display: block;
   width: 100%;
   min-height: 3.25rem;
   padding: 0.8rem 0.9rem;
-  resize: vertical;
   border: 1px solid var(--border);
   border-radius: 9px;
   color: var(--text);
@@ -417,11 +445,20 @@ h2 {
   line-height: 1.5;
 }
 
+.draft-input input {
+  min-height: 2.9rem;
+}
+
+.draft-input textarea {
+  resize: vertical;
+}
+
 .draft-input textarea[lang="ja"] {
   font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
   font-size: 1.05rem;
 }
 
+.draft-input input::placeholder,
 .draft-input textarea::placeholder {
   color: #6f8296;
 }
@@ -529,6 +566,10 @@ h2 {
   }
 
   .draft-studio {
+    grid-template-columns: 1fr;
+  }
+
+  .metadata-grid {
     grid-template-columns: 1fr;
   }
 

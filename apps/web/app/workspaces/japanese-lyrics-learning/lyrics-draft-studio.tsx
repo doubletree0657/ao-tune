@@ -12,6 +12,13 @@ type DraftField =
 
 type LyricsDraft = Record<DraftField, string>;
 
+type DraftMetadata = {
+  songTitle: string;
+  artist: string;
+};
+
+type LocalDraft = LyricsDraft & DraftMetadata;
+
 type LearningField = {
   key: DraftField;
   label: string;
@@ -22,7 +29,9 @@ type LearningField = {
   note?: string;
 };
 
-const emptyDraft: LyricsDraft = {
+const emptyDraft: LocalDraft = {
+  songTitle: "",
+  artist: "",
   original: "",
   romaji: "",
   chinesePronunciation: "",
@@ -84,16 +93,15 @@ const fields: LearningField[] = [
   },
 ];
 
-function hasDraftContent(draft: LyricsDraft): boolean {
+function hasDraftContent(draft: LocalDraft): boolean {
   return Object.values(draft).some((value) => value.trim().length > 0);
 }
 
 export default function LyricsDraftStudio() {
-  const [draft, setDraft] = useState<LyricsDraft>(emptyDraft);
+  const [draft, setDraft] = useState<LocalDraft>(emptyDraft);
   const isDrafting = hasDraftContent(draft);
-  const preview = isDrafting ? draft : fictionalSample;
 
-  function updateField(field: DraftField, value: string) {
+  function updateField(field: keyof LocalDraft, value: string) {
     setDraft((current) => ({ ...current, [field]: value }));
   }
 
@@ -113,9 +121,37 @@ export default function LyricsDraftStudio() {
         </div>
 
         <p className="local-only-note">
-          Use lyrics you provide for private study. Nothing is uploaded or saved,
-          and this draft disappears when the page refreshes.
+          Enter song metadata and privately provided lyric excerpts for local
+          study. Nothing is uploaded or saved, and this draft disappears when
+          the page refreshes. Do not commit real copyrighted lyrics to the
+          repository.
         </p>
+
+        <fieldset className="metadata-fields">
+          <legend>Song details</legend>
+          <div className="metadata-grid">
+            <div className="draft-input">
+              <label htmlFor="draft-song-title">Song title</label>
+              <input
+                id="draft-song-title"
+                onChange={(event) => updateField("songTitle", event.target.value)}
+                placeholder="Enter the song title"
+                type="text"
+                value={draft.songTitle}
+              />
+            </div>
+            <div className="draft-input">
+              <label htmlFor="draft-artist">Artist</label>
+              <input
+                id="draft-artist"
+                onChange={(event) => updateField("artist", event.target.value)}
+                placeholder="Enter the artist"
+                type="text"
+                value={draft.artist}
+              />
+            </div>
+          </div>
+        </fieldset>
 
         <div className="draft-fields">
           {fields.map((field) => (
@@ -139,7 +175,12 @@ export default function LyricsDraftStudio() {
         <p className="preview-label">
           {isDrafting ? "Local draft preview" : "Fictional example"}
         </p>
-        <LyricsLearningCard draft={preview} isDraft={isDrafting} />
+        <LyricsLearningCard
+          artist={isDrafting ? draft.artist : ""}
+          draft={isDrafting ? draft : fictionalSample}
+          isDraft={isDrafting}
+          songTitle={isDrafting ? draft.songTitle : "Window breeze"}
+        />
       </div>
     </div>
   );
@@ -148,19 +189,30 @@ export default function LyricsDraftStudio() {
 function LyricsLearningCard({
   draft,
   isDraft,
+  songTitle,
+  artist,
 }: {
   draft: LyricsDraft;
   isDraft: boolean;
+  songTitle: string;
+  artist: string;
 }) {
+  const previewTitle = songTitle.trim() || "Untitled draft";
+
   return (
     <article
       className="lyrics-card"
-      aria-label={isDraft ? "Local draft lyrics learning card" : "Example lyrics learning card"}
+      aria-label={
+        isDraft
+          ? "Local draft lyrics learning card"
+          : "Example lyrics learning card"
+      }
     >
       <div className="lyrics-card-header">
         <div>
           <p className="artifact-kicker">Practice line 01</p>
-          <h3>{isDraft ? "Untitled draft" : "Window breeze"}</h3>
+          <h3>{previewTitle}</h3>
+          {artist.trim() ? <p className="artifact-artist">{artist}</p> : null}
         </div>
         <span>{isDraft ? "Local only" : "Mock content"}</span>
       </div>
