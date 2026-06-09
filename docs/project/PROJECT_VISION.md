@@ -15,17 +15,27 @@ concepts, and personal branding materials.
 ## Why AoTune?
 
 AoTune is inspired by the quiet, blue-toned atmosphere I often feel from
-Yorushika and Japanese music: calm, literary, youthful, and slightly
+Yorushika's music: calm, literary, youthful, and slightly
 melancholic.
 
-The name represents the mood the project should carry. It is not only about
-songs, lyrics, or music learning. It also reflects the romantic visual language
-of ACGN culture: characters, memory, summer, identity, self-expression, and the
-feeling of turning personal interests into something structured and creative.
+I have always been deeply drawn to Yorushika's music, and one of the personal
+motivations behind this project is to create a workspace where I can study,
+research, and creatively respond to that world more systematically.
 
-Yorushika is a personal inspiration, not an affiliation or endorsement. The
-name and vision describe the final multi-workspace product, not only the first
-Japanese Lyrics Learning implementation.
+That inspiration also connects with the romantic visual language of ACGN
+culture: characters, memory, summer, identity, self-expression, and the feeling
+of turning personal interests into structured and creative artifacts.
+
+AoTune is designed as a personal-first AI agent workspace for Japanese music,
+cosplay planning, ACGN-inspired creation, and personal identity projects. It
+helps users create and refine persistent artifacts such as learning notes,
+research cards, cosplay plans, creative prompts, visual concepts, and personal
+branding materials.
+
+Yorushika is a personal source of mood and aesthetic inspiration, not an
+official affiliation, endorsement, or ownership relationship. The name and
+vision describe the final multi-workspace product, not only the first Japanese
+Lyrics Learning implementation.
 
 ## Product Character
 

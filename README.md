@@ -4,11 +4,15 @@ A personal-first AI agent workspace for Japanese music, cosplay planning, ACGN-i
 
 ## Why AoTune?
 
-AoTune is inspired by the quiet, blue-toned atmosphere I often feel from Yorushika and Japanese music: calm, literary, youthful, and slightly melancholic.
+AoTune is inspired by the quiet, blue-toned atmosphere I often feel from Yorushika's music: calm, literary, youthful, and slightly melancholic.
 
-The name represents the mood I want this project to carry. It is not only about songs, lyrics, or music learning. It is also about the romantic visual language of ACGN culture - characters, memory, summer, identity, self-expression, and the feeling of turning personal interests into something structured and creative.
+I have always been deeply drawn to Yorushika's music, and one of the personal motivations behind this project is to create a workspace where I can study, research, and creatively respond to that world more systematically.
 
-AoTune is designed as a personal-first AI agent workspace for Japanese music, cosplay planning, ACGN-inspired creation, and personal identity projects. It helps users transform their interests into persistent artifacts such as learning notes, research cards, cosplay plans, creative prompts, visual concepts, and personal branding materials.
+That inspiration also connects with the romantic visual language of ACGN culture: characters, memory, summer, identity, self-expression, and the feeling of turning personal interests into structured and creative artifacts.
+
+AoTune is designed as a personal-first AI agent workspace for Japanese music, cosplay planning, ACGN-inspired creation, and personal identity projects. It helps users create and refine persistent artifacts such as learning notes, research cards, cosplay plans, creative prompts, visual concepts, and personal branding materials.
+
+Yorushika is a personal source of mood and aesthetic inspiration, not an official affiliation, endorsement, or ownership relationship.
 
 The project aims to be calm and literary in mood, while remaining practical in engineering: workspace-based agent workflows, persistent artifacts, user preferences, bilingual interfaces, and future identity-aware access control.
 
