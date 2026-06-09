@@ -32,7 +32,7 @@ engineering foundation before adding broader automation.
 
 ## Phase 4: Additional Workspaces
 
-- Expand into Cosplay Planning and Japanese Music Research using the shared
+- Expand into Japanese Music Research and Cosplay Planning using the shared
   artifact foundation.
 - Validate which patterns are genuinely reusable before abstracting them.
 

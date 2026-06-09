@@ -19,9 +19,9 @@ The project aims to be calm and literary in mood, while remaining practical in e
 ## Planned Workspaces
 
 - Japanese Lyrics Learning
+- Japanese Music Research
 - Cosplay Planning
 - Creative Studio
-- Japanese Music Research
 - Personal Branding Studio
 
 ## Current Status

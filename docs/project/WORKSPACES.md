@@ -5,19 +5,39 @@ implementation order does not define their strategic importance.
 
 ## Japanese Lyrics Learning
 
-**Purpose:** Support deliberate Japanese study through user-provided music and
-lyrics context.
+**Purpose:** Help users learn Japanese songs through user-provided lyrics,
+romaji alignment, approximate Chinese pronunciation hints, line-by-line meaning,
+pronunciation notes, and sing-along practice.
 
-**User goals:** Understand vocabulary, grammar, imagery, and cultural context;
-retain useful notes; connect language learning with meaningful music.
+**User goals:** Understand how a song is pronounced, learn how each line can be
+read and sung, connect lyrics with meaning and emotion, and keep personal notes
+for repeated listening and sing-along practice.
 
-**Possible artifacts:** Annotated excerpts, vocabulary notes, grammar cards,
-translation observations, study summaries, and review lists.
+**Possible artifacts:** Lyrics line cards, romaji alignments, approximate Chinese
+pronunciation hints, pronunciation notes, line-by-line meaning notes, difficult
+phrase lists, singing practice notes, and learning progress records.
 
 **Current status:** Phase 1 implementation target.
 
-**Future scope:** Agent-assisted analysis, study review flows, artifact linking,
-and personal learning preferences. It must not become a lyrics scraping service.
+**Future scope:** Agent-assisted pronunciation guidance, editable line-by-line
+learning cards, sing-along practice flows, personal progress tracking, and links
+to related music research artifacts. It must not become a lyrics scraping
+service or a general-purpose Japanese course platform.
+
+## Japanese Music Research
+
+**Purpose:** Build structured personal knowledge about Japanese music.
+
+**User goals:** Research artists, songs, albums, themes, influences, and cultural
+context; connect findings across a personal collection.
+
+**Possible artifacts:** Artist profiles, song research cards, album notes,
+timelines, theme maps, source lists, and listening journals.
+
+**Current status:** Planned placeholder.
+
+**Future scope:** Source-aware research assistance, related-artifact discovery,
+and personal music knowledge organization.
 
 ## Cosplay Planning
 
@@ -48,21 +68,6 @@ character concepts, story fragments, visual direction notes, and project boards.
 
 **Future scope:** Agent-assisted ideation and refinement across text and visual
 references. Image generation may support a workflow but should not define it.
-
-## Japanese Music Research
-
-**Purpose:** Build structured personal knowledge about Japanese music.
-
-**User goals:** Research artists, songs, albums, themes, influences, and cultural
-context; connect findings across a personal collection.
-
-**Possible artifacts:** Artist profiles, song research cards, album notes,
-timelines, theme maps, source lists, and listening journals.
-
-**Current status:** Planned placeholder.
-
-**Future scope:** Source-aware research assistance, related-artifact discovery,
-and personal music knowledge organization.
 
 ## Personal Branding Studio
 
