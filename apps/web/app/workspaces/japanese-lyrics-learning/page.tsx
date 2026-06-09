@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import LyricsDraftStudio from "./lyrics-draft-studio";
+import SongAgentRequest from "./song-agent-request";
 
 export const metadata: Metadata = {
   title: "Japanese Lyrics Learning | AoTune",
@@ -12,21 +12,21 @@ export const metadata: Metadata = {
 const learningSteps = [
   {
     number: "01",
-    title: "Bring your lyrics",
+    title: "Name the song",
     description:
-      "Start with lyrics you provide for a song you want to understand and sing.",
+      "Tell AoTune which song you want to study and what you want to practice.",
   },
   {
     number: "02",
-    title: "Shape each line",
+    title: "Add private context",
     description:
-      "Align romaji, pronunciation hints, meaning, and notes around each lyric line.",
+      "Optionally include lyrics or notes that you provide locally for the request.",
   },
   {
     number: "03",
-    title: "Listen and return",
+    title: "Build an artifact",
     description:
-      "Keep sing-along observations and personal progress for repeated practice.",
+      "The future agent will organize pronunciation, meaning, and practice guidance.",
   },
 ];
 
@@ -44,9 +44,9 @@ export default function JapaneseLyricsLearningPage() {
           <p className="eyebrow">Music learning workspace</p>
           <h1 className="workspace-title">Japanese Lyrics Learning</h1>
           <p className="workspace-intro">
-            Learn a Japanese song line by line through lyrics you provide,
-            pronunciation support, meaning notes, and personal sing-along
-            practice.
+            Tell AoTune what song you want to study. The future agent workflow
+            will turn your goal and user-provided context into a structured
+            learning artifact.
           </p>
         </div>
         <p className="phase workspace-phase">Phase 1 target</p>
@@ -57,8 +57,9 @@ export default function JapaneseLyricsLearningPage() {
           <p className="eyebrow">Learning flow</p>
           <h2 id="learning-flow-heading">From listening to familiarity</h2>
           <p>
-            The workspace stays centered on one song and the notes that help you
-            read, hear, and sing it with more confidence.
+            The workspace begins with your song and learning goal, then keeps
+            generated study material together for listening and sing-along
+            practice.
           </p>
         </div>
 
@@ -73,18 +74,18 @@ export default function JapaneseLyricsLearningPage() {
         </ol>
       </section>
 
-      <section className="workspace-section" aria-labelledby="draft-card-heading">
+      <section className="workspace-section" aria-labelledby="agent-request-heading">
         <div className="section-heading">
-          <p className="eyebrow">Local draft</p>
-          <h2 id="draft-card-heading">Draft your own line</h2>
+          <p className="eyebrow">Agent request</p>
+          <h2 id="agent-request-heading">What song do you want to study?</h2>
           <p>
-            Paste or type a lyric excerpt you provide, then shape pronunciation,
-            meaning, and sing-along notes around it. Drafts stay in this browser
-            tab and are cleared when the page refreshes.
+            AoTune will turn your song goal into a structured learning artifact.
+            This early UI creates a local draft only; generated fields remain
+            placeholders until the agent workflow is connected.
           </p>
         </div>
 
-        <LyricsDraftStudio />
+        <SongAgentRequest />
       </section>
 
       <section className="workspace-section" aria-labelledby="progress-heading">
@@ -96,9 +97,9 @@ export default function JapaneseLyricsLearningPage() {
         <div className="empty-artifacts">
           <p className="empty-artifacts-title">Your song notes will gather here.</p>
           <p>
-            Future saved artifacts may include line cards, difficult phrase
-            notes, sing-along observations, and progress across repeated
-            listening sessions.
+            Future saved artifacts may include generated line cards,
+            pronunciation guidance, sing-along observations, review cards, and
+            progress across repeated listening sessions.
           </p>
           <span>Static placeholder for Phase 1A</span>
         </div>
