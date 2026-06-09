@@ -1,8 +1,14 @@
 const workspaces = [
   {
     name: "Japanese Lyrics Learning",
-    description: "Build lasting language notes from the music you care about.",
+    description:
+      "Prepare pronunciation, meaning notes, and sing-along practice from lyrics.",
     status: "Phase 1 target",
+  },
+  {
+    name: "Japanese Music Research",
+    description: "Collect structured notes about artists, songs, themes, and context.",
+    status: "Planned",
   },
   {
     name: "Cosplay Planning",
@@ -12,11 +18,6 @@ const workspaces = [
   {
     name: "Creative Studio",
     description: "Develop prompts, visual concepts, stories, and creative directions.",
-    status: "Planned",
-  },
-  {
-    name: "Japanese Music Research",
-    description: "Collect structured notes about artists, songs, themes, and context.",
     status: "Planned",
   },
   {

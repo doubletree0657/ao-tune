@@ -28,6 +28,14 @@ limited to health information and workspace template placeholders. Route
 handlers should remain thin, with domain logic moved into focused services only
 when that logic exists.
 
+## Current Development Runtime
+
+The frontend runs locally through Node.js and npm, and the backend runs locally
+through uv. Docker Compose currently manages only external PostgreSQL and Redis
+containers for development. The application does not connect to those services
+yet, and a full Docker-based frontend and backend runtime is planned for a later
+phase.
+
 ## Planned Service Boundaries
 
 These are conceptual boundaries, not instructions to create separate deployed

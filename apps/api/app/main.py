@@ -20,8 +20,18 @@ WORKSPACE_TEMPLATES = [
     WorkspaceTemplate(
         id="japanese-lyrics-learning",
         name="Japanese Lyrics Learning",
-        description="Create structured language notes from Japanese lyrics.",
+        description=(
+            "Prepare pronunciation, meaning notes, and sing-along practice from lyrics."
+        ),
         status="phase-1",
+    ),
+    WorkspaceTemplate(
+        id="japanese-music-research",
+        name="Japanese Music Research",
+        description=(
+            "Collect structured notes about artists, songs, themes, and context."
+        ),
+        status="placeholder",
     ),
     WorkspaceTemplate(
         id="cosplay-planning",
@@ -32,13 +42,9 @@ WORKSPACE_TEMPLATES = [
     WorkspaceTemplate(
         id="creative-studio",
         name="Creative Studio",
-        description="Develop prompts, visual concepts, stories, and creative directions.",
-        status="placeholder",
-    ),
-    WorkspaceTemplate(
-        id="japanese-music-research",
-        name="Japanese Music Research",
-        description="Collect structured notes about artists, songs, themes, and context.",
+        description=(
+            "Develop prompts, visual concepts, stories, and creative directions."
+        ),
         status="placeholder",
     ),
     WorkspaceTemplate(

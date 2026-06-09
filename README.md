@@ -33,10 +33,10 @@ The project aims to be calm and literary in mood, while remaining practical in e
 
 - Next.js / React / TypeScript
 - FastAPI / Python
-- uv
-- PostgreSQL planned
+- uv for backend dependencies and virtual environments
+- PostgreSQL and Redis containers for future application integration
 - LangGraph or OpenAI Agents SDK planned
-- Docker Compose planned
+- Docker Compose for local external services
 
 ## Repository Structure
 
@@ -52,6 +52,36 @@ ao-tune/
 
 ## Local Development
 
+The current development mode runs the frontend and backend directly on the host.
+Docker Compose manages PostgreSQL and Redis as external services when needed;
+the application does not connect to them yet.
+
+Prerequisites: Node.js 22, npm, Python 3.12, uv, and Docker with the Compose
+plugin when running the external services.
+
+### External Services
+
+```bash
+docker compose up -d postgres redis
+```
+
+These services are optional for the current Phase 0 application foundation.
+
+### Backend
+
+```bash
+cd apps/api
+uv sync
+uv run uvicorn app.main:app --reload
+```
+
+The API is available at <http://localhost:8000>. Verify it with:
+
+```bash
+curl http://localhost:8000/health
+curl http://localhost:8000/api/workspaces/templates
+```
+
 ### Frontend
 
 ```bash
@@ -62,32 +92,23 @@ npm run dev
 
 Open <http://localhost:3000>.
 
-### Backend
-
-Install [uv](https://docs.astral.sh/uv/), then run:
+### Verification
 
 ```bash
 cd apps/api
-uv sync --dev
-uv run uvicorn app.main:app --reload
+uv run ruff check .
+uv run pytest
+
+cd ../web
+npm run typecheck
+npm run build
 ```
 
-The API is available at <http://localhost:8000>. Check it with:
+### Future Docker Runtime
 
-```bash
-curl http://localhost:8000/health
-curl http://localhost:8000/api/workspaces/templates
-```
-
-### Planned Local Services
-
-PostgreSQL and Redis placeholders can be started with:
-
-```bash
-docker compose up -d
-```
-
-The application does not connect to these services in Phase 0.
+Running the complete application with `docker compose up --build` is planned for
+a later phase. The current Compose file intentionally manages only PostgreSQL
+and Redis, not the frontend or backend processes.
 
 ## Roadmap
 

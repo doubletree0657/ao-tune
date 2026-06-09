@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
+      - run: npm ci
       - run: npm run typecheck
       - run: npm run build
 
@@ -33,6 +33,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: uv sync --dev
+      - run: uv sync --locked --dev
       - run: uv run ruff check .
       - run: uv run pytest

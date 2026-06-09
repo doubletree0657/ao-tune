@@ -6,13 +6,15 @@
 | --- | --- | --- |
 | Frontend | Next.js, React, TypeScript | Provides the typed web application and routing foundation. |
 | Backend | FastAPI, Python | Provides a small, explicit HTTP API with generated schema support. |
-| Python tooling | uv | Manages Python dependencies and repeatable development commands. |
+| Python tooling | uv | Manages backend dependencies, the local `.venv`, lock resolution, and repeatable commands. |
 | API schemas | Pydantic | Validates request and response contracts. |
 | Testing and quality | pytest, Ruff, TypeScript | Covers focused API tests, Python quality, and frontend type safety. |
 | Automation | GitHub Actions | Runs frontend and backend checks in the current repository. |
 
-The repository also includes a minimal Docker Compose definition for local
-PostgreSQL and Redis containers, but application code does not use them yet.
+Backend setup uses `uv sync`; backend commands run through `uv run` without
+manual virtual environment activation. The repository also includes a minimal
+Docker Compose definition for local PostgreSQL and Redis containers, but
+application code does not use them yet.
 
 ## Planned Additions
 
