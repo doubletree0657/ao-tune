@@ -3,6 +3,8 @@ from typing import Literal
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+from app.lyrics_learning import router as lyrics_learning_router
+
 
 class HealthResponse(BaseModel):
     status: Literal["ok"]
@@ -61,6 +63,7 @@ app = FastAPI(
     description="API foundation for the AoTune personal-first agent workspace.",
     version="0.1.0",
 )
+app.include_router(lyrics_learning_router)
 
 
 @app.get("/health", response_model=HealthResponse)
