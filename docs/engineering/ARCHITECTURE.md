@@ -24,9 +24,12 @@ backend or agent orchestration concerns in React components.
 ### `apps/api`
 
 The API owns HTTP contracts and future application services. Current routes are
-limited to health information and workspace template placeholders. Route
-handlers should remain thin, with domain logic moved into focused services only
-when that logic exists.
+limited to health information, workspace template placeholders, and Japanese
+Lyrics Learning draft creation. Lyrics draft routes delegate to an application
+service, which calls an agent provider abstraction. The current provider is a
+local fake that returns pending sections without external calls. Route handlers
+should remain thin, with domain logic moved into focused services only when that
+logic exists.
 
 ## Current Development Runtime
 

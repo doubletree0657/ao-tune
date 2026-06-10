@@ -14,7 +14,7 @@ uv run ruff check .
 uv run pytest
 ```
 
-Create a mock lyrics-learning agent draft with:
+Create a lyrics-learning draft through the fake agent provider with:
 
 ```bash
 curl -X POST http://localhost:8000/api/lyrics-learning/drafts \
@@ -26,5 +26,7 @@ curl -X POST http://localhost:8000/api/lyrics-learning/drafts \
   }'
 ```
 
-The response contains pending generated sections only. It does not fetch lyrics,
-call an LLM, or persist the draft.
+The route delegates to `LyricsLearningDraftService`, which calls the
+`LyricsLearningAgentProvider` abstraction. The current fake provider returns
+pending generated sections only. It does not fetch lyrics, call an LLM, or
+persist the draft.

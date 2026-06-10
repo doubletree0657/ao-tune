@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from app.lyrics_learning import router as lyrics_learning_router
+from app.api.routes.lyrics_learning import router as lyrics_learning_router
 
 
 class HealthResponse(BaseModel):

@@ -2,7 +2,14 @@ import asyncio
 
 import httpx
 
+from app.agents.lyrics_learning_provider import FakeLyricsLearningAgentProvider
+from app.api.routes.lyrics_learning import get_lyrics_learning_draft_service
 from app.main import app
+from app.schemas.lyrics_learning import (
+    LyricsLearningDraftRequest,
+    LyricsLearningDraftResponse,
+)
+from app.services.lyrics_learning_service import LyricsLearningDraftService
 
 
 async def get(path: str) -> httpx.Response:
@@ -110,6 +117,54 @@ def test_create_lyrics_learning_draft() -> None:
         section["status"] == "pending"
         and section["value"] == "Pending agent generation"
         for section in draft["generatedSections"]
+    )
+
+
+def test_create_lyrics_learning_draft_uses_agent_provider() -> None:
+    class TrackingProvider:
+        def __init__(self) -> None:
+            self.request: LyricsLearningDraftRequest | None = None
+            self.fake_provider = FakeLyricsLearningAgentProvider()
+
+        def create_draft(
+            self,
+            request: LyricsLearningDraftRequest,
+        ) -> LyricsLearningDraftResponse:
+            self.request = request
+            return self.fake_provider.create_draft(request)
+
+    provider = TrackingProvider()
+    service = LyricsLearningDraftService(provider=provider)
+
+    async def get_tracking_service() -> LyricsLearningDraftService:
+        return service
+
+    app.dependency_overrides[get_lyrics_learning_draft_service] = get_tracking_service
+
+    try:
+        response = asyncio.run(
+            post(
+                "/api/lyrics-learning/drafts",
+                json={
+                    "songTitle": "Sample song title",
+                    "artist": "Sample artist",
+                    "learningGoal": "Practice pronunciation.",
+                    "lyricsOrNotes": "User-provided practice notes.",
+                },
+            )
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 201
+    assert provider.request is not None
+    assert provider.request.song_title == "Sample song title"
+    assert provider.request.artist == "Sample artist"
+    assert provider.request.learning_goal == "Practice pronunciation."
+    assert provider.request.lyrics_or_notes == "User-provided practice notes."
+    assert all(
+        section["status"] == "pending"
+        for section in response.json()["generatedSections"]
     )
 
 
