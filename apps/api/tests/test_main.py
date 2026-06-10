@@ -133,12 +133,12 @@ def test_create_lyrics_learning_draft_uses_agent_provider() -> None:
             self.request: LyricsLearningDraftRequest | None = None
             self.fake_provider = FakeLyricsLearningAgentProvider()
 
-        def create_draft(
+        async def create_draft(
             self,
             request: LyricsLearningDraftRequest,
         ) -> LyricsLearningDraftResponse:
             self.request = request
-            return self.fake_provider.create_draft(request)
+            return await self.fake_provider.create_draft(request)
 
     provider = TrackingProvider()
     service = LyricsLearningDraftService(provider=provider)

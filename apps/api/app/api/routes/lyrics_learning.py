@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.agents.lyrics_learning_provider import ProviderNotImplementedError
+from app.agents.lyrics_learning_provider import ProviderRequestError
 from app.agents.lyrics_learning_provider_factory import (
     ProviderConfigurationError,
     get_lyrics_learning_agent_provider,
@@ -41,9 +41,9 @@ async def create_lyrics_learning_draft(
     ],
 ) -> LyricsLearningDraftResponse:
     try:
-        return service.create_draft(request)
-    except ProviderNotImplementedError as error:
+        return await service.create_draft(request)
+    except ProviderRequestError as error:
         raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(error),
         ) from error

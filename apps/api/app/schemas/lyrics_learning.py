@@ -15,7 +15,7 @@ class LyricsLearningDraftRequest(BaseModel):
 class GeneratedSection(BaseModel):
     key: str
     label: str
-    status: Literal["pending"]
+    status: Literal["pending", "generated", "needs_review"]
     value: str
 
 
@@ -75,7 +75,16 @@ class LyricsLearningDraftResponse(BaseModel):
     artist: str
     learning_goal: str = Field(alias="learningGoal")
     source_type: Literal["user_provided"] = Field(alias="sourceType")
-    status: Literal["pending_agent_generation"]
+    status: Literal[
+        "pending_agent_generation",
+        "generated",
+        "needs_review",
+    ]
     user_context: str | None = Field(alias="userContext")
     generated_sections: list[GeneratedSection] = Field(alias="generatedSections")
     provider_metadata: ProviderMetadata = Field(alias="providerMetadata")
+    agent_output: LyricsLearningAgentOutput | None = Field(
+        default=None,
+        alias="agentOutput",
+    )
+    generation_error: str | None = Field(default=None, alias="generationError")

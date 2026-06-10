@@ -8,8 +8,27 @@ export type LyricsLearningDraftRequest = {
 export type GeneratedSection = {
   key: string;
   label: string;
-  status: "pending";
+  status: "pending" | "generated" | "needs_review";
   value: string;
+};
+
+export type LyricsLineCard = {
+  lineNumber: number;
+  originalText: string;
+  romaji: string | null;
+  approximateChinesePronunciation: string | null;
+  meaning: string | null;
+  pronunciationNotes: string[];
+  singAlongNotes: string[];
+  confidence: number | null;
+  needsReview: boolean;
+};
+
+export type LyricsLearningAgentOutput = {
+  lineCards: LyricsLineCard[];
+  pronunciationNotes: string[];
+  singAlongNotes: string[];
+  reviewCards: string[];
 };
 
 export type ProviderMetadata = {
@@ -25,10 +44,12 @@ export type LyricsLearningDraft = {
   artist: string;
   learningGoal: string;
   sourceType: "user_provided";
-  status: "pending_agent_generation";
+  status: "pending_agent_generation" | "generated" | "needs_review";
   userContext: string | null;
   generatedSections: GeneratedSection[];
   providerMetadata: ProviderMetadata;
+  agentOutput: LyricsLearningAgentOutput | null;
+  generationError: string | null;
 };
 
 const apiBaseUrl =

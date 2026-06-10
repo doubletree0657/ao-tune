@@ -421,6 +421,7 @@ h2 {
 
 .agent-artifact-header,
 .agent-request-summary,
+.generated-learning,
 .pending-output-section {
   padding: 1.5rem 1.75rem;
 }
@@ -437,6 +438,7 @@ h2 {
 }
 
 .agent-request-summary h4,
+.generated-learning h4,
 .pending-output-heading h4 {
   margin: 0 0 0.55rem;
   color: var(--accent);
@@ -499,6 +501,92 @@ h2 {
   font-style: italic;
 }
 
+.generation-review-note {
+  margin: 0;
+  padding: 1rem 1.75rem;
+  border-bottom: 1px solid var(--border);
+  color: #d9b4bd;
+  background: rgba(104, 42, 57, 0.12);
+  font-size: 0.88rem;
+}
+
+.generated-learning {
+  border-bottom: 1px solid var(--border);
+}
+
+.lyrics-line-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lyrics-line-list > li {
+  padding: 1.2rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.lyrics-line-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.65rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.lyrics-line-heading strong {
+  color: #d9b4bd;
+  font-weight: 500;
+}
+
+.lyrics-original {
+  margin: 0 0 1rem;
+  color: var(--foreground);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.05rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.lyrics-line-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem 1.25rem;
+  margin: 0;
+}
+
+.lyrics-line-details dt {
+  margin-bottom: 0.25rem;
+  color: var(--accent);
+  font-size: 0.72rem;
+}
+
+.lyrics-line-details dd {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.review-prompts {
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.review-prompts ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--muted);
+}
+
+.review-prompts li + li {
+  margin-top: 0.5rem;
+}
+
 .empty-artifacts {
   padding: 3rem;
   border: 1px dashed rgba(174, 205, 233, 0.3);
@@ -544,7 +632,8 @@ h2 {
 
   .flow-list,
   .request-fields,
-  .agent-request-summary {
+  .agent-request-summary,
+  .lyrics-line-details {
     grid-template-columns: 1fr;
   }
 

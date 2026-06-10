@@ -45,12 +45,17 @@ AOTUNE_LLM_API_KEY=
 AOTUNE_LLM_TIMEOUT_SECONDS=60
 ```
 
-`openai-compatible` is a placeholder provider that makes no network calls and
-returns HTTP 501 when selected. Future adapters can use the same provider
-interface for OpenAI-compatible APIs or local models without changing the draft
-API or service workflow.
+`openai-compatible` sends a chat completions request to
+`AOTUNE_LLM_BASE_URL/chat/completions`. Base URL, model, and API key are required
+only when that provider is selected. Invalid structured model output returns a
+reviewable draft instead of an unhandled parsing error.
 
 The prompt contract in `app/agents/lyrics_learning_prompt.py` accepts song
 metadata, a learning goal, and user-provided lyrics or notes. It requires
 structured, editable pronunciation and learning drafts, prohibits fetching
 lyrics, and marks uncertain readings for review.
+
+The response keeps pending `generatedSections` for fake mode. Real structured
+output is returned in `agentOutput`, with line cards containing romaji,
+approximate Chinese pronunciation, meaning, pronunciation notes, sing-along
+notes, confidence, and review state.

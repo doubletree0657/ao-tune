@@ -9,8 +9,8 @@ class LyricsLearningDraftService:
     def __init__(self, provider: LyricsLearningAgentProvider) -> None:
         self._provider = provider
 
-    def create_draft(
+    async def create_draft(
         self,
         request: LyricsLearningDraftRequest,
     ) -> LyricsLearningDraftResponse:
-        return self._provider.create_draft(request)
+        return await self._provider.create_draft(request)

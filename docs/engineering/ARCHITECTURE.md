@@ -28,10 +28,12 @@ limited to health information, workspace template placeholders, and Japanese
 Lyrics Learning draft creation. Lyrics draft routes delegate to an application
 service, which calls a provider selected from environment configuration. The
 default provider is a local fake that returns pending sections without external
-calls. An OpenAI-compatible placeholder establishes the future adapter boundary
-but makes no network calls. Provider selection remains backend-only; the
-frontend does not expose model switching. Route handlers should remain thin,
-with domain logic moved into focused services only when that logic exists.
+calls. The OpenAI-compatible adapter uses the configured chat completions API
+and validates model output against Pydantic schemas before returning it. Model
+output that cannot be validated becomes a reviewable artifact with a controlled
+error message. Provider selection remains backend-only; the frontend does not
+expose model switching. Route handlers should remain thin, with domain logic
+moved into focused services only when that logic exists.
 
 ## Current Development Runtime
 

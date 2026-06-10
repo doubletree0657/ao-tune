@@ -8,7 +8,8 @@
 | Backend | FastAPI, Python | Provides a small, explicit HTTP API with generated schema support. |
 | Python tooling | uv | Manages backend dependencies, the local `.venv`, lock resolution, and repeatable commands. |
 | API schemas | Pydantic | Validates request and response contracts. |
-| Agent provider boundary | Python protocols and environment configuration | Keeps the fake implementation as the default while preparing for future provider adapters. |
+| HTTP client | httpx | Calls configured OpenAI-compatible chat completions APIs and supports isolated transport mocking. |
+| Agent provider boundary | Python protocols and environment configuration | Keeps the fake implementation as the default while supporting provider-specific adapters. |
 | Testing and quality | pytest, Ruff, TypeScript | Covers focused API tests, Python quality, and frontend type safety. |
 | Automation | GitHub Actions | Runs frontend and backend checks in the current repository. |
 
@@ -31,5 +32,5 @@ application code does not use them yet.
 
 Planned technologies are not commitments to immediate implementation. Add them
 only when a roadmap phase and concrete requirements justify the complexity.
-The current OpenAI-compatible provider is a non-networking placeholder and does
-not require credentials.
+The OpenAI-compatible provider requires credentials only when explicitly
+selected; default fake mode remains fully local and credential-free.

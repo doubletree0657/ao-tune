@@ -48,6 +48,8 @@ const initialArtifact: LyricsLearningDraft = {
     profile: "default",
     mode: "pending_agent_generation",
   },
+  agentOutput: null,
+  generationError: null,
 };
 
 export default function SongAgentRequest() {
@@ -181,7 +183,13 @@ function AgentDraftArtifact({ draft }: { draft: LyricsLearningDraft }) {
           </p>
         </div>
         <span>
-          {draft.id === "local-preview" ? "Local preview" : "Awaiting agent"}
+          {draft.id === "local-preview"
+            ? "Local preview"
+            : draft.status === "generated"
+              ? "Draft generated"
+              : draft.status === "needs_review"
+                ? "Needs review"
+                : "Awaiting agent"}
         </span>
       </div>
 
@@ -203,12 +211,27 @@ function AgentDraftArtifact({ draft }: { draft: LyricsLearningDraft }) {
         )}
       </div>
 
+      {draft.generationError ? (
+        <p className="generation-review-note" role="status">
+          {draft.generationError}
+        </p>
+      ) : null}
+
+      {draft.agentOutput ? (
+        <GeneratedLearningArtifact output={draft.agentOutput} />
+      ) : null}
+
       <div className="pending-output-section">
         <div className="pending-output-heading">
-          <h4>Future generated study material</h4>
+          <h4>
+            {draft.agentOutput
+              ? "Generated study material"
+              : "Future generated study material"}
+          </h4>
           <p>
-            Generated fields are placeholders until the agent workflow is
-            connected.
+            {draft.agentOutput
+              ? "Review and refine this text-based pronunciation draft."
+              : "Generated fields are placeholders until the agent workflow is connected."}
           </p>
         </div>
         <ul className="pending-output-list">
@@ -221,5 +244,89 @@ function AgentDraftArtifact({ draft }: { draft: LyricsLearningDraft }) {
         </ul>
       </div>
     </article>
+  );
+}
+
+function GeneratedLearningArtifact({
+  output,
+}: {
+  output: NonNullable<LyricsLearningDraft["agentOutput"]>;
+}) {
+  return (
+    <section className="generated-learning" aria-labelledby="line-cards-heading">
+      <div className="pending-output-heading">
+        <h4 id="line-cards-heading">Line cards</h4>
+        <p>Text-based guidance generated from the material you provided.</p>
+      </div>
+
+      {output.lineCards.length > 0 ? (
+        <ol className="lyrics-line-list">
+          {output.lineCards.map((card) => (
+            <li key={`${card.lineNumber}-${card.originalText}`}>
+              <div className="lyrics-line-heading">
+                <span>Line {card.lineNumber}</span>
+                {card.needsReview ? <strong>Needs review</strong> : null}
+              </div>
+              <p className="lyrics-original">{card.originalText}</p>
+              <dl className="lyrics-line-details">
+                <LearningField label="Romaji" value={card.romaji} />
+                <LearningField
+                  label="Approximate Chinese pronunciation"
+                  value={card.approximateChinesePronunciation}
+                />
+                <LearningField label="Meaning" value={card.meaning} />
+                <LearningField
+                  label="Confidence"
+                  value={
+                    card.confidence === null
+                      ? null
+                      : `${Math.round(card.confidence * 100)}%`
+                  }
+                />
+                <LearningField
+                  label="Pronunciation notes"
+                  value={card.pronunciationNotes.join(" ") || null}
+                />
+                <LearningField
+                  label="Sing-along notes"
+                  value={card.singAlongNotes.join(" ") || null}
+                />
+              </dl>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="field-empty">
+          No line cards were generated. Add user-provided Japanese lyrics or
+          notes to create them.
+        </p>
+      )}
+
+      {output.reviewCards.length > 0 ? (
+        <div className="review-prompts">
+          <h4>Review cards</h4>
+          <ul>
+            {output.reviewCards.map((card) => (
+              <li key={card}>{card}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function LearningField({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | null;
+}) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{value || "Not generated"}</dd>
+    </div>
   );
 }
