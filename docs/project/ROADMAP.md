@@ -14,6 +14,8 @@ engineering foundation before adding broader automation.
 
 - Create the first real workspace shell and core user flow.
 - Define initial domain schemas and localized interface structure.
+- Establish a provider-agnostic agent boundary, environment configuration, and
+  structured prompt/output contracts while keeping the fake provider active.
 - Keep content user-directed and avoid lyrics scraping.
 
 ## Phase 2: Persistent Artifact Foundation
@@ -28,6 +30,8 @@ engineering foundation before adding broader automation.
 - Introduce a selected orchestration approach after evaluating LangGraph and the
   OpenAI Agents SDK.
 - Add observable, user-controlled agent runs and provider boundaries.
+- Add evaluated real LLM adapters and consider application defaults,
+  workspace-level preferences, and run-level overrides.
 - Consider pgvector only for a demonstrated retrieval need.
 
 ## Phase 4: Additional Workspaces

@@ -1,10 +1,12 @@
 from typing import Protocol
 from uuid import uuid4
 
+from app.config import Settings
 from app.schemas.lyrics_learning import (
     GeneratedSection,
     LyricsLearningDraftRequest,
     LyricsLearningDraftResponse,
+    ProviderMetadata,
 )
 
 
@@ -24,6 +26,9 @@ class FakeLyricsLearningAgentProvider:
         ("sing_along_notes", "Sing-along notes"),
         ("review_cards", "Review cards and learning artifacts"),
     )
+
+    def __init__(self, profile: str = "default") -> None:
+        self._profile = profile
 
     def create_draft(
         self,
@@ -48,4 +53,31 @@ class FakeLyricsLearningAgentProvider:
             status="pending_agent_generation",
             user_context=request.lyrics_or_notes,
             generated_sections=sections,
+            provider_metadata=ProviderMetadata(
+                provider="fake",
+                model=None,
+                profile=self._profile,
+                mode="pending_agent_generation",
+            ),
+        )
+
+
+class ProviderNotImplementedError(NotImplementedError):
+    """Raised when a configured provider is only an architecture placeholder."""
+
+
+class OpenAICompatibleLyricsLearningAgentProvider:
+    """Future OpenAI-compatible adapter; no network calls are implemented."""
+
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+
+    def create_draft(
+        self,
+        request: LyricsLearningDraftRequest,
+    ) -> LyricsLearningDraftResponse:
+        del request
+        raise ProviderNotImplementedError(
+            "The openai-compatible lyrics learning provider is not implemented; "
+            "use AOTUNE_AGENT_PROVIDER=fake"
         )

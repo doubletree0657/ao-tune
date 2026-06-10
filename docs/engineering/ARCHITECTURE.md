@@ -26,10 +26,12 @@ backend or agent orchestration concerns in React components.
 The API owns HTTP contracts and future application services. Current routes are
 limited to health information, workspace template placeholders, and Japanese
 Lyrics Learning draft creation. Lyrics draft routes delegate to an application
-service, which calls an agent provider abstraction. The current provider is a
-local fake that returns pending sections without external calls. Route handlers
-should remain thin, with domain logic moved into focused services only when that
-logic exists.
+service, which calls a provider selected from environment configuration. The
+default provider is a local fake that returns pending sections without external
+calls. An OpenAI-compatible placeholder establishes the future adapter boundary
+but makes no network calls. Provider selection remains backend-only; the
+frontend does not expose model switching. Route handlers should remain thin,
+with domain logic moved into focused services only when that logic exists.
 
 ## Current Development Runtime
 
@@ -55,7 +57,9 @@ services now:
 - **Redis:** optional transient storage or queue support where operational needs
   justify it.
 - **LLM provider boundary:** isolates provider-specific clients and credentials
-  from domain logic.
+  from domain logic. Future selection may combine an application default,
+  workspace preference, and explicit run-level override after those product
+  requirements exist.
 - **IAM integration:** authenticates identities and enforces workspace and
   artifact permissions with auditable decisions.
 

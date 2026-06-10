@@ -42,6 +42,12 @@ const initialArtifact: LyricsLearningDraft = {
   status: "pending_agent_generation",
   userContext: null,
   generatedSections: pendingSections,
+  providerMetadata: {
+    provider: "fake",
+    model: null,
+    profile: "default",
+    mode: "pending_agent_generation",
+  },
 };
 
 export default function SongAgentRequest() {

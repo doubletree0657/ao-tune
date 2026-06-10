@@ -21,8 +21,10 @@ phrase lists, singing practice notes, and learning progress records.
 
 **Future scope:** Agent-assisted pronunciation guidance, editable line-by-line
 learning cards, sing-along practice flows, personal progress tracking, and links
-to related music research artifacts. It must not become a lyrics scraping
-service or a general-purpose Japanese course platform.
+to related music research artifacts. Initial agent output will be a text-based
+pronunciation draft from user-provided text. Performance-aware singing analysis
+and audio-assisted analysis are later advanced features. It must not become a
+lyrics scraping service or a general-purpose Japanese course platform.
 
 ## Japanese Music Research
 

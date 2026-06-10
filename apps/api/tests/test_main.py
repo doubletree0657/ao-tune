@@ -73,7 +73,8 @@ def test_workspace_templates() -> None:
     assert all(item["status"] == "placeholder" for item in templates[1:])
 
 
-def test_create_lyrics_learning_draft() -> None:
+def test_create_lyrics_learning_draft(monkeypatch) -> None:
+    monkeypatch.delenv("AOTUNE_AGENT_PROVIDER", raising=False)
     response = asyncio.run(
         post(
             "/api/lyrics-learning/drafts",
@@ -97,6 +98,12 @@ def test_create_lyrics_learning_draft() -> None:
     assert draft["sourceType"] == "user_provided"
     assert draft["status"] == "pending_agent_generation"
     assert draft["userContext"] == "Focus on rhythm and clear vowel timing."
+    assert draft["providerMetadata"] == {
+        "provider": "fake",
+        "model": None,
+        "profile": "default",
+        "mode": "pending_agent_generation",
+    }
     assert [section["key"] for section in draft["generatedSections"]] == [
         "romaji_alignment",
         "chinese_pronunciation",

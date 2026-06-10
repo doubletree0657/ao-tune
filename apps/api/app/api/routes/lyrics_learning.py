@@ -1,8 +1,13 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.agents.lyrics_learning_provider import FakeLyricsLearningAgentProvider
+from app.agents.lyrics_learning_provider import ProviderNotImplementedError
+from app.agents.lyrics_learning_provider_factory import (
+    ProviderConfigurationError,
+    get_lyrics_learning_agent_provider,
+)
+from app.config import Settings
 from app.schemas.lyrics_learning import (
     LyricsLearningDraftRequest,
     LyricsLearningDraftResponse,
@@ -11,13 +16,16 @@ from app.services.lyrics_learning_service import LyricsLearningDraftService
 
 router = APIRouter(prefix="/api/lyrics-learning", tags=["lyrics-learning"])
 
-_draft_service = LyricsLearningDraftService(
-    provider=FakeLyricsLearningAgentProvider(),
-)
-
-
 async def get_lyrics_learning_draft_service() -> LyricsLearningDraftService:
-    return _draft_service
+    try:
+        provider = get_lyrics_learning_agent_provider(Settings.from_env())
+    except (ProviderConfigurationError, ValueError) as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        ) from error
+
+    return LyricsLearningDraftService(provider=provider)
 
 
 @router.post(
@@ -32,4 +40,10 @@ async def create_lyrics_learning_draft(
         Depends(get_lyrics_learning_draft_service),
     ],
 ) -> LyricsLearningDraftResponse:
-    return service.create_draft(request)
+    try:
+        return service.create_draft(request)
+    except ProviderNotImplementedError as error:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail=str(error),
+        ) from error

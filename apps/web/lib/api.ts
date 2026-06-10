@@ -12,6 +12,13 @@ export type GeneratedSection = {
   value: string;
 };
 
+export type ProviderMetadata = {
+  provider: string;
+  model: string | null;
+  profile: string;
+  mode: string;
+};
+
 export type LyricsLearningDraft = {
   id: string;
   songTitle: string;
@@ -21,6 +28,7 @@ export type LyricsLearningDraft = {
   status: "pending_agent_generation";
   userContext: string | null;
   generatedSections: GeneratedSection[];
+  providerMetadata: ProviderMetadata;
 };
 
 const apiBaseUrl =
