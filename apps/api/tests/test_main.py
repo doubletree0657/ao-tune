@@ -25,6 +25,23 @@ async def post(path: str, json: dict[str, str]) -> httpx.Response:
         return await client.post(path, json=json)
 
 
+async def options(path: str) -> httpx.Response:
+    transport = httpx.ASGITransport(app=app)
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        return await client.options(
+            path,
+            headers={
+                "Access-Control-Request-Headers": "content-type",
+                "Access-Control-Request-Method": "POST",
+                "Origin": "http://localhost:3000",
+            },
+        )
+
+
 def test_health() -> None:
     response = asyncio.run(get("/health"))
 
@@ -94,3 +111,13 @@ def test_create_lyrics_learning_draft() -> None:
         and section["value"] == "Pending agent generation"
         for section in draft["generatedSections"]
     )
+
+
+def test_lyrics_learning_draft_allows_local_frontend_origin() -> None:
+    response = asyncio.run(options("/api/lyrics-learning/drafts"))
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == (
+        "http://localhost:3000"
+    )
+    assert "content-type" in response.headers["access-control-allow-headers"].lower()

@@ -1,6 +1,7 @@
 from typing import Literal
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.lyrics_learning import router as lyrics_learning_router
@@ -62,6 +63,12 @@ app = FastAPI(
     title="AoTune API",
     description="API foundation for the AoTune personal-first agent workspace.",
     version="0.1.0",
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
 app.include_router(lyrics_learning_router)
 

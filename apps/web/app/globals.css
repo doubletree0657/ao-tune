@@ -394,6 +394,21 @@ h2 {
   background: #a4ccef;
 }
 
+.agent-draft-button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.agent-error {
+  margin: 1.25rem 0 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(210, 151, 164, 0.28);
+  border-radius: 10px;
+  color: #d9b4bd;
+  background: rgba(104, 42, 57, 0.15);
+  font-size: 0.88rem;
+}
+
 .agent-artifact {
   position: sticky;
   top: 1rem;

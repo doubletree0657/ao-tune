@@ -92,6 +92,10 @@ npm run dev
 
 Open <http://localhost:3000>.
 
+The frontend calls `http://localhost:8000` by default. To use another local API
+URL, copy `.env.example` to `.env.local` and change
+`NEXT_PUBLIC_API_BASE_URL`.
+
 ### Verification
 
 ```bash
