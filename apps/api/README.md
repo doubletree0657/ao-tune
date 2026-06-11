@@ -22,7 +22,9 @@ curl -X POST http://localhost:8000/api/lyrics-learning/drafts \
   -d '{
     "songTitle": "Sample song title",
     "artist": "Sample artist",
-    "learningGoal": "Practice pronunciation and sing along."
+    "learningGoal": "Practice pronunciation and sing along.",
+    "lyricsText": "User-provided Japanese study line",
+    "studyNotes": "Focus on clear vowels."
   }'
 ```
 
@@ -51,9 +53,11 @@ only when that provider is selected. Invalid structured model output returns a
 reviewable draft instead of an unhandled parsing error.
 
 The prompt contract in `app/agents/lyrics_learning_prompt.py` accepts song
-metadata, a learning goal, and user-provided lyrics or notes. It requires
-structured, editable pronunciation and learning drafts, prohibits fetching
-lyrics, and marks uncertain readings for review.
+metadata, a learning goal, user-provided lyrics text, and separate study notes.
+Only `lyricsText` may produce line cards; `studyNotes` guides emphasis and
+practice advice. The contract prohibits fetching lyrics and marks uncertain
+readings for review. The legacy `lyricsOrNotes` field remains accepted as study
+context, but new clients should use the separated fields.
 
 The response keeps pending `generatedSections` for fake mode. Real structured
 output is returned in `agentOutput`, with line cards containing romaji,

@@ -57,7 +57,9 @@ class FakeLyricsLearningAgentProvider:
             learning_goal=request.learning_goal,
             source_type="user_provided",
             status="pending_agent_generation",
-            user_context=request.lyrics_or_notes,
+            lyrics_text=request.lyrics_text,
+            study_notes=request.study_notes,
+            user_context=request.study_notes,
             generated_sections=sections,
             provider_metadata=ProviderMetadata(
                 provider="fake",
@@ -87,6 +89,18 @@ class OpenAICompatibleLyricsLearningAgentProvider:
         self,
         request: LyricsLearningDraftRequest,
     ) -> LyricsLearningDraftResponse:
+        if not request.lyrics_text or not request.lyrics_text.strip():
+            return self._build_generated_response(
+                request,
+                LyricsLearningAgentOutput(
+                    line_cards=[],
+                    review_cards=[
+                        "Add user-provided lyrics text before generating line cards."
+                    ],
+                ),
+                mode="missing_lyrics_text",
+            )
+
         response_content = await self._request_completion(request)
 
         try:
@@ -100,7 +114,30 @@ class OpenAICompatibleLyricsLearningAgentProvider:
                 "output. Review the request and try again.",
             )
 
+        self._enforce_lyrics_source(request, output)
         return self._build_generated_response(request, output)
+
+    @staticmethod
+    def _enforce_lyrics_source(
+        request: LyricsLearningDraftRequest,
+        output: LyricsLearningAgentOutput,
+    ) -> None:
+        lyrics_lines = {
+            line.strip()
+            for line in (request.lyrics_text or "").splitlines()
+            if line.strip()
+        }
+        valid_line_cards = [
+            card
+            for card in output.line_cards
+            if card.original_text.strip() in lyrics_lines
+        ]
+        if len(valid_line_cards) != len(output.line_cards):
+            output.line_cards = valid_line_cards
+            output.review_cards.append(
+                "One or more generated line cards were removed because they did "
+                "not match the user-provided lyrics text."
+            )
 
     async def _request_completion(
         self,
@@ -144,9 +181,18 @@ class OpenAICompatibleLyricsLearningAgentProvider:
                     },
                 )
                 response.raise_for_status()
+        except httpx.TimeoutException as error:
+            raise ProviderRequestError(
+                "The OpenAI-compatible provider request timed out."
+            ) from error
+        except httpx.HTTPStatusError as error:
+            raise ProviderRequestError(
+                "The OpenAI-compatible provider request failed with status "
+                f"{error.response.status_code}."
+            ) from error
         except httpx.HTTPError as error:
             raise ProviderRequestError(
-                "The OpenAI-compatible provider request failed"
+                "The OpenAI-compatible provider could not be reached."
             ) from error
 
         try:
@@ -166,6 +212,7 @@ class OpenAICompatibleLyricsLearningAgentProvider:
         self,
         request: LyricsLearningDraftRequest,
         output: LyricsLearningAgentOutput,
+        mode: str = "structured_generation",
     ) -> LyricsLearningDraftResponse:
         needs_review = not output.line_cards or any(
             card.needs_review for card in output.line_cards
@@ -182,7 +229,7 @@ class OpenAICompatibleLyricsLearningAgentProvider:
                 if needs_review
                 else "Generated draft available"
             ),
-            mode="structured_generation",
+            mode=mode,
             output=output,
         )
 
@@ -227,7 +274,9 @@ class OpenAICompatibleLyricsLearningAgentProvider:
             learning_goal=request.learning_goal,
             source_type="user_provided",
             status=status,
-            user_context=request.lyrics_or_notes,
+            lyrics_text=request.lyrics_text,
+            study_notes=request.study_notes,
+            user_context=request.study_notes,
             generated_sections=sections,
             provider_metadata=ProviderMetadata(
                 provider="openai-compatible",

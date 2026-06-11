@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class LyricsLearningDraftRequest(BaseModel):
@@ -9,7 +9,19 @@ class LyricsLearningDraftRequest(BaseModel):
     song_title: str = Field(alias="songTitle", min_length=1)
     artist: str = Field(min_length=1)
     learning_goal: str = Field(alias="learningGoal", min_length=1)
-    lyrics_or_notes: str | None = Field(default=None, alias="lyricsOrNotes")
+    lyrics_text: str | None = Field(default=None, alias="lyricsText")
+    study_notes: str | None = Field(default=None, alias="studyNotes")
+    lyrics_or_notes: str | None = Field(
+        default=None,
+        alias="lyricsOrNotes",
+        exclude=True,
+    )
+
+    @model_validator(mode="after")
+    def apply_legacy_context(self) -> "LyricsLearningDraftRequest":
+        if self.lyrics_or_notes and not self.study_notes and not self.lyrics_text:
+            self.study_notes = self.lyrics_or_notes
+        return self
 
 
 class GeneratedSection(BaseModel):
@@ -80,6 +92,8 @@ class LyricsLearningDraftResponse(BaseModel):
         "generated",
         "needs_review",
     ]
+    lyrics_text: str | None = Field(default=None, alias="lyricsText")
+    study_notes: str | None = Field(default=None, alias="studyNotes")
     user_context: str | None = Field(alias="userContext")
     generated_sections: list[GeneratedSection] = Field(alias="generatedSections")
     provider_metadata: ProviderMetadata = Field(alias="providerMetadata")

@@ -27,7 +27,8 @@ def draft_request() -> LyricsLearningDraftRequest:
         song_title="Sample song title",
         artist="Sample artist",
         learning_goal="Practice pronunciation.",
-        lyrics_or_notes="学びたい一行",
+        lyrics_text="学びたい一行",
+        study_notes="Focus on clear vowel timing.",
     )
 
 
@@ -107,16 +108,33 @@ def test_invalid_provider_has_clear_configuration_error() -> None:
         get_lyrics_learning_agent_provider(Settings(agent_provider="unknown"))
 
 
-def test_prompt_contract_uses_only_supplied_request_text() -> None:
+def test_prompt_contract_separates_lyrics_text_from_study_notes() -> None:
     prompt = build_user_prompt(draft_request())
 
-    assert PROMPT_CONTRACT_VERSION == "lyrics-learning-v2"
+    assert PROMPT_CONTRACT_VERSION == "lyrics-learning-v3"
     assert "Do not fetch" in SYSTEM_PROMPT
     assert "missing copyrighted lyrics" in SYSTEM_PROMPT
     assert "text-based draft" in SYSTEM_PROMPT
     assert "needsReview=true" in SYSTEM_PROMPT
     assert "empty lineCards" in SYSTEM_PROMPT
+    assert "only from lines in the user-provided lyricsText field" in SYSTEM_PROMPT
+    assert "Never\nturn studyNotes into lineCards" in SYSTEM_PROMPT
     assert "学びたい一行" in prompt
+    assert "Focus on clear vowel timing." in prompt
+    assert "the only source for lineCards" in prompt
+    assert "context only; do not convert into lineCards" in prompt
+
+
+def test_legacy_lyrics_or_notes_becomes_study_context() -> None:
+    request = LyricsLearningDraftRequest(
+        song_title="Sample song title",
+        artist="Sample artist",
+        learning_goal="Practice pronunciation.",
+        lyrics_or_notes="Legacy listening note.",
+    )
+
+    assert request.lyrics_text is None
+    assert request.study_notes == "Legacy listening note."
 
 
 def test_openai_provider_parses_structured_output() -> None:
@@ -187,6 +205,42 @@ def test_openai_provider_invalid_json_returns_reviewable_response() -> None:
     )
 
 
+def test_openai_provider_removes_line_cards_from_study_notes() -> None:
+    output = {
+        "lineCards": [
+            {
+                "lineNumber": 1,
+                "originalText": "Focus on clear vowel timing.",
+                "romaji": None,
+                "approximateChinesePronunciation": None,
+                "meaning": None,
+                "pronunciationNotes": [],
+                "singAlongNotes": [],
+                "confidence": 0.2,
+                "needsReview": True,
+            }
+        ],
+        "pronunciationNotes": [],
+        "singAlongNotes": [],
+        "reviewCards": [],
+    }
+    provider = OpenAICompatibleLyricsLearningAgentProvider(
+        settings=openai_settings(),
+        transport=httpx.MockTransport(
+            lambda request: chat_response(json.dumps(output))
+        ),
+    )
+
+    draft = asyncio.run(provider.create_draft(draft_request()))
+
+    assert draft.agent_output is not None
+    assert draft.agent_output.line_cards == []
+    assert draft.agent_output.review_cards == [
+        "One or more generated line cards were removed because they did not "
+        "match the user-provided lyrics text."
+    ]
+
+
 def test_openai_provider_empty_line_cards_need_review() -> None:
     provider = OpenAICompatibleLyricsLearningAgentProvider(
         settings=openai_settings(),
@@ -198,7 +252,7 @@ def test_openai_provider_empty_line_cards_need_review() -> None:
                         "pronunciationNotes": [],
                         "singAlongNotes": [],
                         "reviewCards": [
-                            "User-provided Japanese lyrics or notes are required."
+                            "User-provided lyrics text is required."
                         ],
                     }
                 )
@@ -211,6 +265,32 @@ def test_openai_provider_empty_line_cards_need_review() -> None:
     assert draft.status == "needs_review"
     assert draft.agent_output is not None
     assert draft.agent_output.line_cards == []
+
+
+def test_openai_provider_without_lyrics_text_skips_request() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("Provider request should not be sent without lyrics text")
+
+    provider = OpenAICompatibleLyricsLearningAgentProvider(
+        settings=openai_settings(),
+        transport=httpx.MockTransport(handler),
+    )
+    request = LyricsLearningDraftRequest(
+        song_title="Sample song title",
+        artist="Sample artist",
+        learning_goal="Practice pronunciation.",
+        study_notes="Focus on rhythm, but do not create a line card from this.",
+    )
+
+    draft = asyncio.run(provider.create_draft(request))
+
+    assert draft.status == "needs_review"
+    assert draft.provider_metadata.mode == "missing_lyrics_text"
+    assert draft.agent_output is not None
+    assert draft.agent_output.line_cards == []
+    assert draft.agent_output.review_cards == [
+        "Add user-provided lyrics text before generating line cards."
+    ]
 
 
 def test_openai_mode_missing_configuration_returns_controlled_error(

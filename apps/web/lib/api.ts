@@ -2,7 +2,8 @@ export type LyricsLearningDraftRequest = {
   songTitle: string;
   artist: string;
   learningGoal: string;
-  lyricsOrNotes?: string;
+  lyricsText?: string;
+  studyNotes?: string;
 };
 
 export type GeneratedSection = {
@@ -45,6 +46,8 @@ export type LyricsLearningDraft = {
   learningGoal: string;
   sourceType: "user_provided";
   status: "pending_agent_generation" | "generated" | "needs_review";
+  lyricsText: string | null;
+  studyNotes: string | null;
   userContext: string | null;
   generatedSections: GeneratedSection[];
   providerMetadata: ProviderMetadata;
@@ -55,6 +58,41 @@ export type LyricsLearningDraft = {
 const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
   "http://localhost:8000";
+
+export class LyricsLearningApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = "LyricsLearningApiError";
+  }
+}
+
+async function getApiErrorMessage(response: Response): Promise<string> {
+  const fallback = `AoTune API returned status ${response.status}.`;
+
+  try {
+    const payload = (await response.json()) as unknown;
+    if (
+      typeof payload === "object" &&
+      payload !== null &&
+      "detail" in payload
+    ) {
+      const detail = payload.detail;
+      if (typeof detail === "string" && detail.trim()) {
+        return detail;
+      }
+      if (Array.isArray(detail)) {
+        return "The draft request was invalid. Check the required fields and try again.";
+      }
+    }
+  } catch {
+    return fallback;
+  }
+
+  return fallback;
+}
 
 export async function createLyricsLearningDraft(
   request: LyricsLearningDraftRequest,
@@ -68,7 +106,10 @@ export async function createLyricsLearningDraft(
   });
 
   if (!response.ok) {
-    throw new Error(`Draft request failed with status ${response.status}.`);
+    throw new LyricsLearningApiError(
+      await getApiErrorMessage(response),
+      response.status,
+    );
   }
 
   return (await response.json()) as LyricsLearningDraft;

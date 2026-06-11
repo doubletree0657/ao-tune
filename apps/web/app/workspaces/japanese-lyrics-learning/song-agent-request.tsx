@@ -3,7 +3,10 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 
-import { createLyricsLearningDraft } from "@/lib/api";
+import {
+  createLyricsLearningDraft,
+  LyricsLearningApiError,
+} from "@/lib/api";
 import type {
   GeneratedSection,
   LyricsLearningDraft,
@@ -16,7 +19,8 @@ const defaultRequest: SongRequest = {
   songTitle: "だから僕は音楽を辞めた",
   artist: "Yorushika",
   learningGoal: "I want to learn pronunciation and sing along.",
-  lyricsOrNotes: "",
+  lyricsText: "",
+  studyNotes: "",
 };
 
 const pendingSections: GeneratedSection[] = [
@@ -40,6 +44,8 @@ const initialArtifact: LyricsLearningDraft = {
   learningGoal: defaultRequest.learningGoal,
   sourceType: "user_provided",
   status: "pending_agent_generation",
+  lyricsText: null,
+  studyNotes: null,
   userContext: null,
   generatedSections: pendingSections,
   providerMetadata: {
@@ -70,13 +76,18 @@ export default function SongAgentRequest() {
     try {
       const response = await createLyricsLearningDraft({
         ...request,
-        lyricsOrNotes: request.lyricsOrNotes.trim() || undefined,
+        lyricsText: request.lyricsText.trim() || undefined,
+        studyNotes: request.studyNotes.trim() || undefined,
       });
       setDraft(response);
-    } catch {
-      setError(
-        "AoTune could not create the draft. Check that the local API is running, then try again.",
-      );
+    } catch (requestError) {
+      if (requestError instanceof LyricsLearningApiError) {
+        setError(requestError.message);
+      } else {
+        setError(
+          "AoTune could not reach the local API. Check that it is running at the configured API address, then try again.",
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -98,10 +109,9 @@ export default function SongAgentRequest() {
         </div>
 
         <p className="local-only-note">
-          Song metadata, lyrics, and notes are user-provided locally and sent
-          only to the local AoTune API. Nothing is persisted. You may paste a
-          privately provided excerpt for study, but do not commit real
-          copyrighted lyrics to the repository.
+          Lyrics text is provided by you locally and sent to the AoTune API for
+          a text-based pronunciation draft. Study notes guide the agent but are
+          not treated as lyric lines. Nothing is persisted.
         </p>
 
         <div className="request-fields">
@@ -139,17 +149,38 @@ export default function SongAgentRequest() {
           </div>
 
           <div className="draft-input request-field-wide">
-            <label htmlFor="request-lyrics-notes">
-              Optional user-provided lyrics or notes
+            <label htmlFor="request-lyrics-text">
+              User-provided lyrics text
             </label>
             <textarea
-              id="request-lyrics-notes"
-              onChange={(event) => updateField("lyricsOrNotes", event.target.value)}
-              placeholder="Paste your own study excerpt or add listening notes"
+              id="request-lyrics-text"
+              lang="ja"
+              onChange={(event) => updateField("lyricsText", event.target.value)}
+              placeholder="Paste lyrics text that you are allowed to use"
               rows={8}
-              value={request.lyricsOrNotes}
+              value={request.lyricsText}
             />
-            <p>This content is sent to the local API and is not persisted.</p>
+            <p>
+              Line cards are generated only from this user-provided text. It is
+              sent to the local API and is not persisted.
+            </p>
+          </div>
+
+          <div className="draft-input request-field-wide">
+            <label htmlFor="request-study-notes">
+              Study notes / listening goals
+            </label>
+            <textarea
+              id="request-study-notes"
+              onChange={(event) => updateField("studyNotes", event.target.value)}
+              placeholder="Add pronunciation focus, difficult phrases, or sing-along goals"
+              rows={5}
+              value={request.studyNotes}
+            />
+            <p>
+              These notes guide emphasis and review focus. They are not
+              converted into lyric line cards.
+            </p>
           </div>
         </div>
 
@@ -198,18 +229,19 @@ function AgentDraftArtifact({ draft }: { draft: LyricsLearningDraft }) {
           <h4>Learning goal</h4>
           <p>{draft.learningGoal}</p>
         </div>
-        {draft.userContext ? (
-          <div>
-            <h4>User-provided lyrics or notes</h4>
-            <p className="user-context">{draft.userContext}</p>
-          </div>
-        ) : (
-          <div>
-            <h4>User-provided lyrics or notes</h4>
-            <p className="field-empty">No optional context added.</p>
-          </div>
-        )}
+        <TextPreview
+          emptyText="No lyrics text added. Line cards require user-provided lyrics text."
+          label="User-provided lyrics text"
+          text={draft.lyricsText}
+        />
+        <TextPreview
+          emptyText="No study notes added."
+          label="Study notes / listening goals"
+          text={draft.studyNotes}
+        />
       </div>
+
+      <ProviderNotice draft={draft} />
 
       {draft.generationError ? (
         <p className="generation-review-note" role="status">
@@ -226,12 +258,14 @@ function AgentDraftArtifact({ draft }: { draft: LyricsLearningDraft }) {
           <h4>
             {draft.agentOutput
               ? "Generated study material"
-              : "Future generated study material"}
+              : "Draft output sections"}
           </h4>
           <p>
             {draft.agentOutput
               ? "Review and refine this text-based pronunciation draft."
-              : "Generated fields are placeholders until the agent workflow is connected."}
+              : draft.providerMetadata.provider === "fake"
+                ? "The fake provider returns placeholders. Configure the backend OpenAI-compatible provider to generate text-based learning drafts."
+                : "The configured provider did not return structured study material."}
           </p>
         </div>
         <ul className="pending-output-list">
@@ -297,8 +331,8 @@ function GeneratedLearningArtifact({
         </ol>
       ) : (
         <p className="field-empty">
-          No line cards were generated. Add user-provided Japanese lyrics or
-          notes to create them.
+          No line cards were generated. Add user-provided lyrics text to create
+          them; study notes are context only.
         </p>
       )}
 
@@ -313,6 +347,59 @@ function GeneratedLearningArtifact({
         </div>
       ) : null}
     </section>
+  );
+}
+
+function ProviderNotice({ draft }: { draft: LyricsLearningDraft }) {
+  if (draft.id === "local-preview") {
+    return null;
+  }
+
+  const isFake = draft.providerMetadata.provider === "fake";
+  return (
+    <div className={`provider-notice ${isFake ? "provider-fake" : "provider-real"}`}>
+      <strong>{isFake ? "Fake provider placeholder" : "OpenAI-compatible draft"}</strong>
+      <span>
+        {isFake
+          ? "No model generation ran. The sections below show pending placeholders."
+          : `Generated through the backend provider${draft.providerMetadata.model ? ` using ${draft.providerMetadata.model}` : ""}.`}
+      </span>
+    </div>
+  );
+}
+
+function TextPreview({
+  emptyText,
+  label,
+  text,
+}: {
+  emptyText: string;
+  label: string;
+  text: string | null;
+}) {
+  if (!text) {
+    return (
+      <div>
+        <h4>{label}</h4>
+        <p className="field-empty">{emptyText}</p>
+      </div>
+    );
+  }
+
+  const lines = text.split(/\r?\n/);
+  const linePreview = lines.slice(0, 4).join("\n");
+  const preview = linePreview.slice(0, 320);
+  const isTruncated = lines.length > 4 || linePreview.length > 320;
+
+  return (
+    <div>
+      <h4>{label}</h4>
+      <p className="user-context">{preview}</p>
+      <p className="context-count">
+        {text.length.toLocaleString()} characters
+        {isTruncated ? "; preview shortened" : ""}
+      </p>
+    </div>
   );
 }
 

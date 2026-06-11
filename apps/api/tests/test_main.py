@@ -82,7 +82,8 @@ def test_create_lyrics_learning_draft(monkeypatch) -> None:
                 "songTitle": "だから僕は音楽を辞めた",
                 "artist": "Yorushika",
                 "learningGoal": "I want to learn pronunciation and sing along.",
-                "lyricsOrNotes": "Focus on rhythm and clear vowel timing.",
+                "lyricsText": "学習用の一行",
+                "studyNotes": "Focus on rhythm and clear vowel timing.",
             },
         )
     )
@@ -97,6 +98,8 @@ def test_create_lyrics_learning_draft(monkeypatch) -> None:
     )
     assert draft["sourceType"] == "user_provided"
     assert draft["status"] == "pending_agent_generation"
+    assert draft["lyricsText"] == "学習用の一行"
+    assert draft["studyNotes"] == "Focus on rhythm and clear vowel timing."
     assert draft["userContext"] == "Focus on rhythm and clear vowel timing."
     assert draft["providerMetadata"] == {
         "provider": "fake",
@@ -156,7 +159,8 @@ def test_create_lyrics_learning_draft_uses_agent_provider() -> None:
                     "songTitle": "Sample song title",
                     "artist": "Sample artist",
                     "learningGoal": "Practice pronunciation.",
-                    "lyricsOrNotes": "User-provided practice notes.",
+                    "lyricsText": "学習用の一行",
+                    "studyNotes": "User-provided practice notes.",
                 },
             )
         )
@@ -168,7 +172,8 @@ def test_create_lyrics_learning_draft_uses_agent_provider() -> None:
     assert provider.request.song_title == "Sample song title"
     assert provider.request.artist == "Sample artist"
     assert provider.request.learning_goal == "Practice pronunciation."
-    assert provider.request.lyrics_or_notes == "User-provided practice notes."
+    assert provider.request.lyrics_text == "学習用の一行"
+    assert provider.request.study_notes == "User-provided practice notes."
     assert all(
         section["status"] == "pending"
         for section in response.json()["generatedSections"]

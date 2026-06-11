@@ -18,15 +18,15 @@ const learningSteps = [
   },
   {
     number: "02",
-    title: "Add private context",
+    title: "Add lyrics and context",
     description:
-      "Optionally include lyrics or notes that you provide locally for the request.",
+      "Provide lyrics text locally, with separate study notes for pronunciation and listening goals.",
   },
   {
     number: "03",
     title: "Build an artifact",
     description:
-      "The future agent will organize pronunciation, meaning, and practice guidance.",
+      "The configured agent organizes text-based pronunciation, meaning, and practice guidance.",
   },
 ];
 
@@ -44,9 +44,9 @@ export default function JapaneseLyricsLearningPage() {
           <p className="eyebrow">Music learning workspace</p>
           <h1 className="workspace-title">Japanese Lyrics Learning</h1>
           <p className="workspace-intro">
-            Tell AoTune what song you want to study. The future agent workflow
-            will turn your goal and user-provided context into a structured
-            learning artifact.
+            Tell AoTune what song you want to study. The configured agent can
+            turn your goal and user-provided lyrics text into a structured
+            learning draft.
           </p>
         </div>
         <p className="phase workspace-phase">Phase 1 target</p>
@@ -80,8 +80,9 @@ export default function JapaneseLyricsLearningPage() {
           <h2 id="agent-request-heading">What song do you want to study?</h2>
           <p>
             AoTune will turn your song goal into a structured learning artifact.
-            This early UI creates a local draft only; generated fields remain
-            placeholders until the agent workflow is connected.
+            The default fake provider returns placeholders. An OpenAI-compatible
+            provider can generate text-based learning drafts when configured on
+            the backend.
           </p>
         </div>
 

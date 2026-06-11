@@ -431,6 +431,10 @@ h2 {
   border-bottom: 1px solid var(--border);
 }
 
+.agent-request-summary > div:first-child {
+  grid-column: 1 / -1;
+}
+
 .agent-request-summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -456,6 +460,36 @@ h2 {
 .user-context {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.context-count {
+  margin-top: 0.35rem !important;
+  color: #718499 !important;
+  font-size: 0.75rem;
+}
+
+.provider-notice {
+  display: grid;
+  gap: 0.2rem;
+  padding: 1rem 1.75rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+
+.provider-notice strong {
+  color: #c9d7e4;
+}
+
+.provider-notice span {
+  color: var(--muted);
+}
+
+.provider-fake {
+  background: rgba(139, 188, 232, 0.05);
+}
+
+.provider-real {
+  background: rgba(93, 158, 132, 0.08);
 }
 
 .pending-output-heading {
