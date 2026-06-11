@@ -11,6 +11,7 @@ import type {
   GeneratedSection,
   LyricsLearningDraft,
   LyricsLearningDraftRequest,
+  LyricsLineCard,
 } from "@/lib/api";
 
 type SongRequest = Required<LyricsLearningDraftRequest>;
@@ -61,6 +62,7 @@ const initialArtifact: LyricsLearningDraft = {
 export default function SongAgentRequest() {
   const [request, setRequest] = useState<SongRequest>(defaultRequest);
   const [draft, setDraft] = useState<LyricsLearningDraft>(initialArtifact);
+  const [editableLineCards, setEditableLineCards] = useState<LyricsLineCard[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,6 +82,13 @@ export default function SongAgentRequest() {
         studyNotes: request.studyNotes.trim() || undefined,
       });
       setDraft(response);
+      setEditableLineCards(
+        response.agentOutput?.lineCards.map((card) => ({
+          ...card,
+          pronunciationNotes: [...card.pronunciationNotes],
+          singAlongNotes: [...card.singAlongNotes],
+        })) ?? [],
+      );
     } catch (requestError) {
       if (requestError instanceof LyricsLearningApiError) {
         setError(requestError.message);
@@ -195,12 +204,24 @@ export default function SongAgentRequest() {
         </button>
       </form>
 
-      <AgentDraftArtifact draft={draft} />
+      <AgentDraftArtifact
+        draft={draft}
+        lineCards={editableLineCards}
+        onLineCardsChange={setEditableLineCards}
+      />
     </div>
   );
 }
 
-function AgentDraftArtifact({ draft }: { draft: LyricsLearningDraft }) {
+function AgentDraftArtifact({
+  draft,
+  lineCards,
+  onLineCardsChange,
+}: {
+  draft: LyricsLearningDraft;
+  lineCards: LyricsLineCard[];
+  onLineCardsChange: (lineCards: LyricsLineCard[]) => void;
+}) {
   return (
     <article className="agent-artifact" aria-labelledby="agent-artifact-title">
       <div className="agent-artifact-header">
@@ -250,7 +271,11 @@ function AgentDraftArtifact({ draft }: { draft: LyricsLearningDraft }) {
       ) : null}
 
       {draft.agentOutput ? (
-        <GeneratedLearningArtifact output={draft.agentOutput} />
+        <GeneratedLearningArtifact
+          lineCards={lineCards}
+          onLineCardsChange={onLineCardsChange}
+          output={draft.agentOutput}
+        />
       ) : null}
 
       <div className="pending-output-section">
@@ -282,53 +307,134 @@ function AgentDraftArtifact({ draft }: { draft: LyricsLearningDraft }) {
 }
 
 function GeneratedLearningArtifact({
+  lineCards,
+  onLineCardsChange,
   output,
 }: {
+  lineCards: LyricsLineCard[];
+  onLineCardsChange: (lineCards: LyricsLineCard[]) => void;
   output: NonNullable<LyricsLearningDraft["agentOutput"]>;
 }) {
+  const reviewedCount = lineCards.filter((card) => !card.needsReview).length;
+  const needsReviewCount = lineCards.length - reviewedCount;
+
+  function updateLineCard(
+    cardIndex: number,
+    update: Partial<LyricsLineCard>,
+  ) {
+    onLineCardsChange(
+      lineCards.map((card, index) =>
+        index === cardIndex ? { ...card, ...update } : card,
+      ),
+    );
+  }
+
   return (
     <section className="generated-learning" aria-labelledby="line-cards-heading">
       <div className="pending-output-heading">
         <h4 id="line-cards-heading">Line cards</h4>
-        <p>Text-based guidance generated from the material you provided.</p>
+        <p>Review the generated draft before saving it as an artifact.</p>
       </div>
 
-      {output.lineCards.length > 0 ? (
-        <ol className="lyrics-line-list">
-          {output.lineCards.map((card) => (
-            <li key={`${card.lineNumber}-${card.originalText}`}>
-              <div className="lyrics-line-heading">
-                <span>Line {card.lineNumber}</span>
-                {card.needsReview ? <strong>Needs review</strong> : null}
-              </div>
-              <p className="lyrics-original">{card.originalText}</p>
-              <dl className="lyrics-line-details">
-                <LearningField label="Romaji" value={card.romaji} />
-                <LearningField
-                  label="Approximate Chinese pronunciation"
-                  value={card.approximateChinesePronunciation}
-                />
-                <LearningField label="Meaning" value={card.meaning} />
-                <LearningField
-                  label="Confidence"
-                  value={
-                    card.confidence === null
-                      ? null
-                      : `${Math.round(card.confidence * 100)}%`
-                  }
-                />
-                <LearningField
-                  label="Pronunciation notes"
-                  value={card.pronunciationNotes.join(" ") || null}
-                />
-                <LearningField
-                  label="Sing-along notes"
-                  value={card.singAlongNotes.join(" ") || null}
-                />
-              </dl>
-            </li>
-          ))}
-        </ol>
+      {lineCards.length > 0 ? (
+        <>
+          <ReviewSummary
+            needsReviewCount={needsReviewCount}
+            reviewedCount={reviewedCount}
+            totalCount={lineCards.length}
+          />
+          <p className="local-edit-note">
+            Original text stays read-only; generated learning fields are
+            editable. Edits are local until artifact persistence is implemented.
+          </p>
+          <ol className="lyrics-line-list">
+            {lineCards.map((card, cardIndex) => (
+              <li key={`${card.lineNumber}-${card.originalText}`}>
+                <div className="lyrics-line-heading">
+                  <div>
+                    <span>Line {card.lineNumber}</span>
+                    <small>AI draft</small>
+                  </div>
+                  <strong
+                    className={
+                      card.needsReview ? "status-review" : "status-reviewed"
+                    }
+                  >
+                    {card.needsReview ? "Needs review" : "Reviewed"}
+                  </strong>
+                </div>
+                <div className="lyrics-original-block">
+                  <span>Original text - read-only</span>
+                  <p className="lyrics-original" lang="ja">
+                    {card.originalText}
+                  </p>
+                </div>
+                <div className="lyrics-line-edit-fields">
+                  <EditableLearningField
+                    id={`line-${cardIndex}-romaji`}
+                    label="Romaji"
+                    onChange={(value) =>
+                      updateLineCard(cardIndex, { romaji: value })
+                    }
+                    value={card.romaji}
+                  />
+                  <EditableLearningField
+                    id={`line-${cardIndex}-chinese-pronunciation`}
+                    label="Approximate Chinese pronunciation"
+                    onChange={(value) =>
+                      updateLineCard(cardIndex, {
+                        approximateChinesePronunciation: value,
+                      })
+                    }
+                    value={card.approximateChinesePronunciation}
+                  />
+                  <EditableLearningField
+                    id={`line-${cardIndex}-meaning`}
+                    label="Meaning"
+                    onChange={(value) =>
+                      updateLineCard(cardIndex, { meaning: value })
+                    }
+                    value={card.meaning}
+                  />
+                  <EditableNotesField
+                    id={`line-${cardIndex}-pronunciation-notes`}
+                    label="Pronunciation notes"
+                    onChange={(value) =>
+                      updateLineCard(cardIndex, { pronunciationNotes: value })
+                    }
+                    value={card.pronunciationNotes}
+                  />
+                  <EditableNotesField
+                    id={`line-${cardIndex}-sing-along-notes`}
+                    label="Sing-along notes"
+                    onChange={(value) =>
+                      updateLineCard(cardIndex, { singAlongNotes: value })
+                    }
+                    value={card.singAlongNotes}
+                  />
+                </div>
+                <div className="line-review-actions">
+                  <span>
+                    Confidence:{" "}
+                    {card.confidence === null
+                      ? "Not generated"
+                      : `${Math.round(card.confidence * 100)}%`}
+                  </span>
+                  <button
+                    onClick={() =>
+                      updateLineCard(cardIndex, {
+                        needsReview: !card.needsReview,
+                      })
+                    }
+                    type="button"
+                  >
+                    {card.needsReview ? "Mark reviewed" : "Mark needs review"}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </>
       ) : (
         <p className="field-empty">
           No line cards were generated. Add user-provided lyrics text to create
@@ -347,6 +453,96 @@ function GeneratedLearningArtifact({
         </div>
       ) : null}
     </section>
+  );
+}
+
+function ReviewSummary({
+  needsReviewCount,
+  reviewedCount,
+  totalCount,
+}: {
+  needsReviewCount: number;
+  reviewedCount: number;
+  totalCount: number;
+}) {
+  return (
+    <aside
+      aria-labelledby="review-summary-heading"
+      aria-live="polite"
+      className="review-summary"
+    >
+      <div>
+        <h5 id="review-summary-heading">Review summary</h5>
+        <p>Track the local review state of this generated draft.</p>
+      </div>
+      <dl>
+        <div>
+          <dt>Total line cards</dt>
+          <dd>{totalCount}</dd>
+        </div>
+        <div>
+          <dt>Reviewed</dt>
+          <dd>{reviewedCount}</dd>
+        </div>
+        <div>
+          <dt>Needs review</dt>
+          <dd>{needsReviewCount}</dd>
+        </div>
+      </dl>
+    </aside>
+  );
+}
+
+function EditableLearningField({
+  id,
+  label,
+  onChange,
+  value,
+}: {
+  id: string;
+  label: string;
+  onChange: (value: string | null) => void;
+  value: string | null;
+}) {
+  return (
+    <div className="line-edit-field">
+      <label htmlFor={id}>{label}</label>
+      <textarea
+        id={id}
+        onChange={(event) => onChange(event.target.value || null)}
+        placeholder="Not generated"
+        rows={3}
+        value={value ?? ""}
+      />
+    </div>
+  );
+}
+
+function EditableNotesField({
+  id,
+  label,
+  onChange,
+  value,
+}: {
+  id: string;
+  label: string;
+  onChange: (value: string[]) => void;
+  value: string[];
+}) {
+  return (
+    <div className="line-edit-field">
+      <label htmlFor={id}>{label}</label>
+      <textarea
+        id={id}
+        onChange={(event) =>
+          onChange(event.target.value ? event.target.value.split("\n") : [])
+        }
+        placeholder="Add one note per line"
+        rows={4}
+        value={value.join("\n")}
+      />
+      <p>One note per line.</p>
+    </div>
   );
 }
 
@@ -399,21 +595,6 @@ function TextPreview({
         {text.length.toLocaleString()} characters
         {isTruncated ? "; preview shortened" : ""}
       </p>
-    </div>
-  );
-}
-
-function LearningField({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | null;
-}) {
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{value || "Not generated"}</dd>
     </div>
   );
 }
