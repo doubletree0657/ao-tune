@@ -8,6 +8,7 @@
 | Backend | FastAPI, Python | Provides a small, explicit HTTP API with generated schema support. |
 | Python tooling | uv | Manages backend dependencies, the local `.venv`, lock resolution, and repeatable commands. |
 | API schemas | Pydantic | Validates request and response contracts. |
+| Local configuration | python-dotenv | Loads optional backend `.env.local` values while preserving process environment overrides. |
 | HTTP client | httpx | Calls configured OpenAI-compatible chat completions APIs and supports isolated transport mocking. |
 | Agent provider boundary | Python protocols and environment configuration | Keeps the fake implementation as the default while supporting provider-specific adapters. |
 | Testing and quality | pytest, Ruff, TypeScript | Covers focused API tests, Python quality, and frontend type safety. |

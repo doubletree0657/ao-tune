@@ -1,6 +1,23 @@
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
+
+from dotenv import dotenv_values
+
+DEFAULT_ENV_FILE = Path(__file__).resolve().parents[1] / ".env.local"
+
+
+def load_config_values(
+    environ: Mapping[str, str],
+    env_file: str | Path,
+) -> dict[str, str]:
+    file_values = {
+        key: value
+        for key, value in dotenv_values(env_file).items()
+        if value is not None
+    }
+    return {**file_values, **environ}
 
 
 @dataclass(frozen=True)
@@ -14,8 +31,13 @@ class Settings:
     llm_timeout_seconds: int = 60
 
     @classmethod
-    def from_env(cls, environ: Mapping[str, str] | None = None) -> "Settings":
-        values = os.environ if environ is None else environ
+    def from_env(
+        cls,
+        environ: Mapping[str, str] | None = None,
+        env_file: str | Path = DEFAULT_ENV_FILE,
+    ) -> "Settings":
+        process_values = os.environ if environ is None else environ
+        values = load_config_values(process_values, env_file)
         timeout = int(values.get("AOTUNE_LLM_TIMEOUT_SECONDS", "60"))
         if timeout <= 0:
             raise ValueError("AOTUNE_LLM_TIMEOUT_SECONDS must be greater than zero")

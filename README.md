@@ -70,10 +70,16 @@ These services are optional for the current Phase 0 application foundation.
 ### Backend
 
 ```bash
+cp apps/api/.env.example apps/api/.env.local
 cd apps/api
 uv sync
 uv run uvicorn app.main:app --reload
 ```
+
+The local environment file is optional. Keep the default fake provider for
+credential-free development, or add local provider settings to `.env.local`.
+Process environment variables override `.env.local` values. Never commit
+`.env.local` or real API keys.
 
 The API is available at <http://localhost:8000>. Verify it with:
 

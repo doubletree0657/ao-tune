@@ -4,8 +4,13 @@ Minimal FastAPI service for the AoTune workspace application.
 
 ```bash
 uv sync
+cp .env.example .env.local
 uv run uvicorn app.main:app --reload
 ```
+
+`.env.local` is optional and ignored by Git. Keep fake mode for credential-free
+development, or fill the OpenAI-compatible provider values in that file. Never
+commit `.env.local` or real API keys.
 
 Run checks with:
 
@@ -35,7 +40,14 @@ persist the draft.
 
 ## Agent Provider Configuration
 
-The default mode requires no credentials:
+Copy the committed template for local development:
+
+```bash
+cp .env.example .env.local
+```
+
+The default mode requires no credentials. Edit `.env.local` only when local
+provider configuration is needed:
 
 ```bash
 AOTUNE_AGENT_PROVIDER=fake
@@ -46,6 +58,11 @@ AOTUNE_LLM_MODEL=
 AOTUNE_LLM_API_KEY=
 AOTUNE_LLM_TIMEOUT_SECONDS=60
 ```
+
+Configuration precedence is process environment variables first, `.env.local`
+values second, and application defaults last. This lets shell and CI settings
+override local file values. The API starts normally when `.env.local` does not
+exist.
 
 `openai-compatible` sends a chat completions request to
 `AOTUNE_LLM_BASE_URL/chat/completions`. Base URL, model, and API key are required
