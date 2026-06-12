@@ -6,14 +6,22 @@ import TextPreview from "./text-preview";
 
 type AgentDraftArtifactProps = {
   draft: LyricsLearningDraft;
+  hasLocalDraft: boolean;
   lineCards: LyricsLineCard[];
+  onClearLocalDraft: () => void;
   onLineCardsChange: (lineCards: LyricsLineCard[]) => void;
+  onSelectedLineIndexChange: (index: number) => void;
+  selectedLineIndex: number;
 };
 
 export default function AgentDraftArtifact({
   draft,
+  hasLocalDraft,
   lineCards,
+  onClearLocalDraft,
   onLineCardsChange,
+  onSelectedLineIndexChange,
+  selectedLineIndex,
 }: AgentDraftArtifactProps) {
   return (
     <article className="agent-artifact" aria-labelledby="agent-artifact-title">
@@ -67,20 +75,34 @@ export default function AgentDraftArtifact({
         <GeneratedLearningArtifact
           lineCards={lineCards}
           onLineCardsChange={onLineCardsChange}
+          onSelectedLineIndexChange={onSelectedLineIndexChange}
           output={draft.agentOutput}
+          selectedLineIndex={selectedLineIndex}
         />
       ) : null}
 
-      <div className="pending-output-section">
+      <div className="local-draft-controls">
+        <p>
+          Draft edits are saved locally in this browser until database
+          persistence is implemented.
+        </p>
+        <button
+          disabled={!hasLocalDraft}
+          onClick={onClearLocalDraft}
+          type="button"
+        >
+          Clear local draft
+        </button>
+      </div>
+
+      <details className="pending-output-section" open={!draft.agentOutput}>
+        <summary>
+          {draft.agentOutput ? "Generation overview" : "Draft output sections"}
+        </summary>
         <div className="pending-output-heading">
-          <h4>
-            {draft.agentOutput
-              ? "Generated study material"
-              : "Draft output sections"}
-          </h4>
           <p>
             {draft.agentOutput
-              ? "Review and refine this text-based pronunciation draft."
+              ? "A compact overview of the generated study material."
               : draft.providerMetadata.provider === "fake"
                 ? "The fake provider returns placeholders. Configure the backend OpenAI-compatible provider to generate text-based learning drafts."
                 : "The configured provider did not return structured study material."}
@@ -90,11 +112,17 @@ export default function AgentDraftArtifact({
           {draft.generatedSections.map((section) => (
             <li key={section.key}>
               <span>{section.label}</span>
-              <strong>{section.value}</strong>
+              <strong>
+                {draft.agentOutput
+                  ? section.status === "generated"
+                    ? "Generated"
+                    : "Needs review"
+                  : section.value}
+              </strong>
             </li>
           ))}
         </ul>
-      </div>
+      </details>
     </article>
   );
 }

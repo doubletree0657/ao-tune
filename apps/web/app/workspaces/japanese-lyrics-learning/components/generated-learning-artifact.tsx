@@ -1,18 +1,23 @@
 import type { LyricsLearningAgentOutput, LyricsLineCard } from "@/lib/api";
 
-import LineCardEditor from "./line-card-editor";
+import LineCardList from "./line-card-list";
 import ReviewSummary from "./review-summary";
+import SelectedLineCardEditor from "./selected-line-card-editor";
 
 type GeneratedLearningArtifactProps = {
   lineCards: LyricsLineCard[];
   onLineCardsChange: (lineCards: LyricsLineCard[]) => void;
+  onSelectedLineIndexChange: (index: number) => void;
   output: LyricsLearningAgentOutput;
+  selectedLineIndex: number;
 };
 
 export default function GeneratedLearningArtifact({
   lineCards,
   onLineCardsChange,
+  onSelectedLineIndexChange,
   output,
+  selectedLineIndex,
 }: GeneratedLearningArtifactProps) {
   const reviewedCount = lineCards.filter((card) => !card.needsReview).length;
   const needsReviewCount = lineCards.length - reviewedCount;
@@ -42,20 +47,18 @@ export default function GeneratedLearningArtifact({
             reviewedCount={reviewedCount}
             totalCount={lineCards.length}
           />
-          <p className="local-edit-note">
-            Original text stays read-only; generated learning fields are
-            editable. Edits are local until artifact persistence is implemented.
-          </p>
-          <ol className="lyrics-line-list">
-            {lineCards.map((card, cardIndex) => (
-              <LineCardEditor
-                card={card}
-                cardIndex={cardIndex}
-                key={`${card.lineNumber}-${card.originalText}`}
-                onChange={(update) => updateLineCard(cardIndex, update)}
-              />
-            ))}
-          </ol>
+          <div className="line-review-desk">
+            <LineCardList
+              lineCards={lineCards}
+              onSelect={onSelectedLineIndexChange}
+              selectedLineIndex={selectedLineIndex}
+            />
+            <SelectedLineCardEditor
+              card={lineCards[selectedLineIndex] ?? lineCards[0]}
+              cardIndex={selectedLineIndex}
+              onChange={(update) => updateLineCard(selectedLineIndex, update)}
+            />
+          </div>
         </>
       ) : (
         <p className="field-empty">

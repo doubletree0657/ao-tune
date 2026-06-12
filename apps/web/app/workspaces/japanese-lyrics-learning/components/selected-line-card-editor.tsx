@@ -5,23 +5,26 @@ import {
   EditableNotesField,
 } from "./editable-fields";
 
-type LineCardEditorProps = {
+type SelectedLineCardEditorProps = {
   card: LyricsLineCard;
   cardIndex: number;
   onChange: (update: Partial<LyricsLineCard>) => void;
 };
 
-export default function LineCardEditor({
+export default function SelectedLineCardEditor({
   card,
   cardIndex,
   onChange,
-}: LineCardEditorProps) {
+}: SelectedLineCardEditorProps) {
   return (
-    <li>
+    <section
+      aria-labelledby={`selected-line-${cardIndex}`}
+      className="selected-line-editor"
+    >
       <div className="lyrics-line-heading">
         <div>
-          <span>Line {card.lineNumber}</span>
-          <small>AI draft</small>
+          <span id={`selected-line-${cardIndex}`}>Line {card.lineNumber}</span>
+          <small>Selected learning card</small>
         </div>
         <strong
           className={card.needsReview ? "status-review" : "status-reviewed"}
@@ -83,6 +86,6 @@ export default function LineCardEditor({
           {card.needsReview ? "Mark reviewed" : "Mark needs review"}
         </button>
       </div>
-    </li>
+    </section>
   );
 }

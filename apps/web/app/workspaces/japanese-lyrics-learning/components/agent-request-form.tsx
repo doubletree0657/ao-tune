@@ -39,7 +39,8 @@ export default function AgentRequestForm({
       <p className="local-only-note">
         Lyrics text is provided by you locally and sent to the AoTune API for a
         text-based pronunciation draft. Study notes guide the agent but are not
-        treated as lyric lines. Nothing is persisted.
+        treated as lyric lines. Draft inputs and edits are autosaved in this
+        browser only.
       </p>
 
       <div className="request-fields">
@@ -90,7 +91,7 @@ export default function AgentRequestForm({
           />
           <p>
             Line cards are generated only from this user-provided text. It is
-            sent to the local API and is not persisted.
+            sent to the local API and is not stored in a database.
           </p>
         </div>
 

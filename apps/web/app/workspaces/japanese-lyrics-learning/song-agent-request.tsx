@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   createLyricsLearningDraft,
@@ -60,6 +60,16 @@ const initialArtifact: LyricsLearningDraft = {
   generationError: null,
 };
 
+const localDraftStorageKey = "aotune.japanese-lyrics-learning.draft.v1";
+
+type LocalDraft = {
+  version: 1;
+  request: SongRequest;
+  draft: LyricsLearningDraft;
+  lineCards: LyricsLineCard[];
+  selectedLineIndex: number;
+};
+
 function cloneLineCards(draft: LyricsLearningDraft): LyricsLineCard[] {
   return (
     draft.agentOutput?.lineCards.map((card) => ({
@@ -70,12 +80,89 @@ function cloneLineCards(draft: LyricsLearningDraft): LyricsLineCard[] {
   );
 }
 
+function readLocalDraft(): LocalDraft | null {
+  try {
+    const storedValue = window.localStorage.getItem(localDraftStorageKey);
+    if (!storedValue) {
+      return null;
+    }
+
+    const parsed = JSON.parse(storedValue) as Partial<LocalDraft>;
+    if (
+      parsed.version !== 1 ||
+      !parsed.request ||
+      !parsed.draft ||
+      !Array.isArray(parsed.lineCards) ||
+      typeof parsed.selectedLineIndex !== "number"
+    ) {
+      return null;
+    }
+
+    return parsed as LocalDraft;
+  } catch {
+    return null;
+  }
+}
+
+function requestHasLocalChanges(request: SongRequest) {
+  return (Object.keys(defaultRequest) as (keyof SongRequest)[]).some(
+    (field) => request[field] !== defaultRequest[field],
+  );
+}
+
 export default function SongAgentRequest() {
   const [request, setRequest] = useState<SongRequest>(defaultRequest);
   const [draft, setDraft] = useState<LyricsLearningDraft>(initialArtifact);
   const [editableLineCards, setEditableLineCards] = useState<LyricsLineCard[]>([]);
+  const [selectedLineIndex, setSelectedLineIndex] = useState(0);
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const [hasLocalDraft, setHasLocalDraft] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const localDraft = readLocalDraft();
+    if (localDraft) {
+      setRequest(localDraft.request);
+      setDraft(localDraft.draft);
+      setEditableLineCards(localDraft.lineCards);
+      setSelectedLineIndex(
+        Math.min(
+          Math.max(localDraft.selectedLineIndex, 0),
+          Math.max(localDraft.lineCards.length - 1, 0),
+        ),
+      );
+      setHasLocalDraft(true);
+    }
+    setHasHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
+    if (draft.id === initialArtifact.id && !requestHasLocalChanges(request)) {
+      return;
+    }
+
+    const localDraft: LocalDraft = {
+      version: 1,
+      request,
+      draft,
+      lineCards: editableLineCards,
+      selectedLineIndex,
+    };
+    try {
+      window.localStorage.setItem(
+        localDraftStorageKey,
+        JSON.stringify(localDraft),
+      );
+      setHasLocalDraft(true);
+    } catch {
+      setHasLocalDraft(false);
+    }
+  }, [draft, editableLineCards, hasHydrated, request, selectedLineIndex]);
 
   function updateField(field: keyof SongRequest, value: string) {
     setRequest((current) => ({ ...current, [field]: value }));
@@ -93,6 +180,7 @@ export default function SongAgentRequest() {
       } satisfies LyricsLearningDraftRequest);
       setDraft(response);
       setEditableLineCards(cloneLineCards(response));
+      setSelectedLineIndex(0);
     } catch (requestError) {
       if (requestError instanceof LyricsLearningApiError) {
         setError(requestError.message);
@@ -106,8 +194,24 @@ export default function SongAgentRequest() {
     }
   }
 
+  function clearLocalDraft() {
+    try {
+      window.localStorage.removeItem(localDraftStorageKey);
+    } catch {
+      // Reset the in-memory draft even when browser storage is unavailable.
+    }
+    setRequest(defaultRequest);
+    setDraft(initialArtifact);
+    setEditableLineCards([]);
+    setSelectedLineIndex(0);
+    setHasLocalDraft(false);
+    setError(null);
+  }
+
   return (
-    <div className="agent-workbench">
+    <div
+      className={`agent-workbench${draft.agentOutput ? " has-generated-artifact" : ""}`}
+    >
       <AgentRequestForm
         error={error}
         isLoading={isLoading}
@@ -117,8 +221,12 @@ export default function SongAgentRequest() {
       />
       <AgentDraftArtifact
         draft={draft}
+        hasLocalDraft={hasLocalDraft}
         lineCards={editableLineCards}
+        onClearLocalDraft={clearLocalDraft}
         onLineCardsChange={setEditableLineCards}
+        onSelectedLineIndexChange={setSelectedLineIndex}
+        selectedLineIndex={selectedLineIndex}
       />
     </div>
   );
