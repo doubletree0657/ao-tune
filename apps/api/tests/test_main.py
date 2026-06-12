@@ -74,7 +74,8 @@ def test_workspace_templates() -> None:
 
 
 def test_create_lyrics_learning_draft(monkeypatch) -> None:
-    monkeypatch.delenv("AOTUNE_AGENT_PROVIDER", raising=False)
+    monkeypatch.setenv("AOTUNE_AGENT_PROVIDER", "fake")
+    monkeypatch.setenv("AOTUNE_DEFAULT_LLM_PROFILE", "default")
     response = asyncio.run(
         post(
             "/api/lyrics-learning/drafts",

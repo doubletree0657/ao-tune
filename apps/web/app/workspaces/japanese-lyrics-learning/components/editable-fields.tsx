@@ -1,4 +1,5 @@
 type EditableLearningFieldProps = {
+  helperText?: string;
   id: string;
   label: string;
   onChange: (value: string | null) => void;
@@ -6,6 +7,7 @@ type EditableLearningFieldProps = {
 };
 
 export function EditableLearningField({
+  helperText,
   id,
   label,
   onChange,
@@ -21,6 +23,7 @@ export function EditableLearningField({
         rows={3}
         value={value ?? ""}
       />
+      {helperText ? <p>{helperText}</p> : null}
     </div>
   );
 }

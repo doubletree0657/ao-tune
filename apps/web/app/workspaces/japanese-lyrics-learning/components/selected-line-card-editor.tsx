@@ -46,6 +46,7 @@ export default function SelectedLineCardEditor({
           value={card.romaji}
         />
         <EditableLearningField
+          helperText="Use Chinese-friendly sound hints for sing-along practice. Edit freely if the draft does not match your habit."
           id={`line-${cardIndex}-chinese-pronunciation`}
           label="Approximate Chinese pronunciation"
           onChange={(value) =>

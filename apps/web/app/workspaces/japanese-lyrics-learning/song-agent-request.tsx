@@ -74,6 +74,7 @@ function cloneLineCards(draft: LyricsLearningDraft): LyricsLineCard[] {
   return (
     draft.agentOutput?.lineCards.map((card) => ({
       ...card,
+      needsReview: true,
       pronunciationNotes: [...card.pronunciationNotes],
       singAlongNotes: [...card.singAlongNotes],
     })) ?? []

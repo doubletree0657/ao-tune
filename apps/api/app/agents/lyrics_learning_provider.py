@@ -115,6 +115,7 @@ class OpenAICompatibleLyricsLearningAgentProvider:
             )
 
         self._enforce_lyrics_source(request, output)
+        self._require_user_review(output)
         return self._build_generated_response(request, output)
 
     @staticmethod
@@ -138,6 +139,11 @@ class OpenAICompatibleLyricsLearningAgentProvider:
                 "One or more generated line cards were removed because they did "
                 "not match the user-provided lyrics text."
             )
+
+    @staticmethod
+    def _require_user_review(output: LyricsLearningAgentOutput) -> None:
+        for card in output.line_cards:
+            card.needs_review = True
 
     async def _request_completion(
         self,

@@ -1,5 +1,6 @@
 import asyncio
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -60,8 +61,8 @@ def chat_response(content: str) -> httpx.Response:
     )
 
 
-def test_settings_default_to_fake_without_credentials() -> None:
-    settings = Settings.from_env({})
+def test_settings_default_to_fake_without_credentials(tmp_path: Path) -> None:
+    settings = Settings.from_env({}, env_file=tmp_path / "missing.env")
 
     assert settings.agent_provider == "fake"
     assert settings.llm_api_key is None
@@ -110,12 +111,22 @@ def test_invalid_provider_has_clear_configuration_error() -> None:
 
 def test_prompt_contract_separates_lyrics_text_from_study_notes() -> None:
     prompt = build_user_prompt(draft_request())
+    normalized_system_prompt = " ".join(SYSTEM_PROMPT.split())
 
-    assert PROMPT_CONTRACT_VERSION == "lyrics-learning-v3"
+    assert PROMPT_CONTRACT_VERSION == "lyrics-learning-v4"
     assert "Do not fetch" in SYSTEM_PROMPT
     assert "missing copyrighted lyrics" in SYSTEM_PROMPT
     assert "text-based draft" in SYSTEM_PROMPT
     assert "needsReview=true" in SYSTEM_PROMPT
+    assert "standard Hepburn-style romaji" in SYSTEM_PROMPT
+    assert "Prefer Chinese characters or Chinese-friendly sound hints" in SYSTEM_PROMPT
+    assert "Do not use plain English romanization" in SYSTEM_PROMPT
+    assert "Simplified Chinese explanation by default" in SYSTEM_PROMPT
+    assert "Chinese native speakers" in SYSTEM_PROMPT
+    assert "long vowels, small っ, ん" in normalized_system_prompt
+    assert "breath, rhythm, pauses" in SYSTEM_PROMPT
+    assert "may not match the original performance timing" in normalized_system_prompt
+    assert "Confidence does not mean that a card is reviewed" in SYSTEM_PROMPT
     assert "empty lineCards" in SYSTEM_PROMPT
     assert "only from lines in the user-provided lyricsText field" in SYSTEM_PROMPT
     assert "Never\nturn studyNotes into lineCards" in SYSTEM_PROMPT
@@ -145,9 +156,9 @@ def test_openai_provider_parses_structured_output() -> None:
                 "originalText": "学びたい一行",
                 "romaji": "manabitai ichigyou",
                 "approximateChinesePronunciation": "示例发音提示",
-                "meaning": "A line the user wants to study.",
-                "pronunciationNotes": ["Keep vowels clear."],
-                "singAlongNotes": ["Practice slowly first."],
+                "meaning": "想学习的一行歌词。",
+                "pronunciationNotes": ["注意保持元音清晰。"],
+                "singAlongNotes": ["先放慢速度练习。"],
                 "confidence": 0.75,
                 "needsReview": True,
             }
@@ -181,6 +192,42 @@ def test_openai_provider_parses_structured_output() -> None:
     assert draft.agent_output.line_cards[0].romaji == "manabitai ichigyou"
     assert draft.agent_output.line_cards[0].needs_review is True
     assert draft.generation_error is None
+    assert all(
+        section.status == "needs_review" for section in draft.generated_sections
+    )
+
+
+def test_openai_provider_requires_user_review_for_generated_cards() -> None:
+    output = {
+        "lineCards": [
+            {
+                "lineNumber": 1,
+                "originalText": "学びたい一行",
+                "romaji": "manabitai ichigyō",
+                "approximateChinesePronunciation": "玛那比泰 一七交",
+                "meaning": "想学习的一行歌词。",
+                "pronunciationNotes": [],
+                "singAlongNotes": [],
+                "confidence": 0.98,
+                "needsReview": False,
+            }
+        ],
+        "pronunciationNotes": [],
+        "singAlongNotes": [],
+        "reviewCards": [],
+    }
+    provider = OpenAICompatibleLyricsLearningAgentProvider(
+        settings=openai_settings(),
+        transport=httpx.MockTransport(
+            lambda request: chat_response(json.dumps(output))
+        ),
+    )
+
+    draft = asyncio.run(provider.create_draft(draft_request()))
+
+    assert draft.status == "needs_review"
+    assert draft.agent_output is not None
+    assert draft.agent_output.line_cards[0].needs_review is True
     assert all(
         section.status == "needs_review" for section in draft.generated_sections
     )
@@ -297,9 +344,9 @@ def test_openai_mode_missing_configuration_returns_controlled_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("AOTUNE_AGENT_PROVIDER", "openai-compatible")
-    monkeypatch.delenv("AOTUNE_LLM_BASE_URL", raising=False)
-    monkeypatch.delenv("AOTUNE_LLM_MODEL", raising=False)
-    monkeypatch.delenv("AOTUNE_LLM_API_KEY", raising=False)
+    monkeypatch.setenv("AOTUNE_LLM_BASE_URL", "")
+    monkeypatch.setenv("AOTUNE_LLM_MODEL", "")
+    monkeypatch.setenv("AOTUNE_LLM_API_KEY", "")
     transport = httpx.ASGITransport(app=app)
 
     async def post() -> httpx.Response:
