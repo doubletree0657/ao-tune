@@ -1,10 +1,19 @@
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from app.agents.lyrics_learning_provider_factory import (
+    resolve_lyrics_learning_agent_provider,
+)
 from app.api.routes.lyrics_learning import router as lyrics_learning_router
+from app.config import Settings
+
+logger = logging.getLogger("uvicorn.error")
 
 
 class HealthResponse(BaseModel):
@@ -59,10 +68,28 @@ WORKSPACE_TEMPLATES = [
 ]
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    settings = Settings.from_env()
+    resolution = resolve_lyrics_learning_agent_provider(settings)
+    app.state.lyrics_learning_agent_provider = resolution.provider
+    logger.info(
+        "Agent provider resolved: environment=%s configured_provider=%s "
+        "resolved_provider=%s profile=%s model=%s",
+        resolution.app_env,
+        resolution.configured_provider,
+        resolution.resolved_provider,
+        resolution.profile,
+        resolution.model,
+    )
+    yield
+
+
 app = FastAPI(
     title="AoTune API",
     description="API foundation for the AoTune personal-first agent workspace.",
     version="0.1.0",
+    lifespan=lifespan,
 )
 app.add_middleware(
     CORSMiddleware,

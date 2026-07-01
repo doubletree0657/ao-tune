@@ -22,10 +22,10 @@ def load_config_values(
 
 @dataclass(frozen=True)
 class Settings:
-    agent_provider: str = "fake"
+    app_env: str = "development"
+    agent_provider: str = "auto"
     database_url: str = "postgresql+asyncpg://aotune:aotune@localhost:5432/aotune"
     default_llm_profile: str = "default"
-    llm_provider: str = "openai-compatible"
     llm_base_url: str | None = None
     llm_model: str | None = None
     llm_api_key: str | None = None
@@ -44,7 +44,8 @@ class Settings:
             raise ValueError("AOTUNE_LLM_TIMEOUT_SECONDS must be greater than zero")
 
         return cls(
-            agent_provider=values.get("AOTUNE_AGENT_PROVIDER", "fake"),
+            app_env=values.get("AOTUNE_APP_ENV", "development"),
+            agent_provider=values.get("AOTUNE_AGENT_PROVIDER", "auto"),
             database_url=values.get(
                 "AOTUNE_DATABASE_URL",
                 "postgresql+asyncpg://aotune:aotune@localhost:5432/aotune",
@@ -52,10 +53,6 @@ class Settings:
             default_llm_profile=values.get(
                 "AOTUNE_DEFAULT_LLM_PROFILE",
                 "default",
-            ),
-            llm_provider=values.get(
-                "AOTUNE_LLM_PROVIDER",
-                "openai-compatible",
             ),
             llm_base_url=values.get("AOTUNE_LLM_BASE_URL") or None,
             llm_model=values.get("AOTUNE_LLM_MODEL") or None,

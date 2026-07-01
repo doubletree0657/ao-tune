@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.lyrics_learning_provider import ProviderRequestError
@@ -23,10 +23,17 @@ router = APIRouter(prefix="/api/lyrics-learning", tags=["lyrics-learning"])
 
 
 async def get_lyrics_learning_draft_service(
+    request: Request,
     session: Annotated[AsyncSession, Depends(get_database_session)],
 ) -> LyricsLearningDraftService:
     try:
-        provider = get_lyrics_learning_agent_provider(Settings.from_env())
+        provider = getattr(
+            request.app.state,
+            "lyrics_learning_agent_provider",
+            None,
+        )
+        if provider is None:
+            provider = get_lyrics_learning_agent_provider(Settings.from_env())
     except (ProviderConfigurationError, ValueError) as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

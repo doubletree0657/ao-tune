@@ -61,6 +61,20 @@ docker compose up --build
 
 Compose starts PostgreSQL, runs Alembic migrations, starts the API at
 <http://localhost:8000>, and starts the web app at <http://localhost:3000>.
+By default, Compose runs the API with `AOTUNE_APP_ENV=development` and
+`AOTUNE_AGENT_PROVIDER=auto`, which resolves to the fake provider when no LLM
+base URL, model, and API key are configured.
+
+To run Compose with a local development provider configuration, create an
+untracked `.env.development` at the repository root and start with:
+
+```bash
+docker compose --env-file .env.development up --build
+```
+
+The file can set `AOTUNE_AGENT_PROVIDER=openai-compatible`,
+`AOTUNE_LLM_BASE_URL`, `AOTUNE_LLM_MODEL`, and `AOTUNE_LLM_API_KEY`. Do not
+commit real API keys.
 
 Host-based development remains available when you want fast reload loops.
 
@@ -89,8 +103,9 @@ uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
 
-The local environment file is optional. Keep the default fake provider for
-credential-free development, or add local provider settings to `.env.local`.
+The local environment file is optional. Keep the default `development`/`auto`
+configuration for credential-free development, or add local provider settings to
+`.env.local`.
 Process environment variables override `.env.local` values. Never commit
 `.env.local` or real API keys.
 

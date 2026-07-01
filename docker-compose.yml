@@ -29,14 +29,14 @@ services:
     build:
       context: ./apps/api
     environment:
-      AOTUNE_AGENT_PROVIDER: fake
+      AOTUNE_APP_ENV: ${AOTUNE_APP_ENV:-development}
+      AOTUNE_AGENT_PROVIDER: ${AOTUNE_AGENT_PROVIDER:-auto}
       AOTUNE_DATABASE_URL: postgresql+asyncpg://aotune:aotune@postgres:5432/aotune
-      AOTUNE_DEFAULT_LLM_PROFILE: default
-      AOTUNE_LLM_PROVIDER: openai-compatible
-      AOTUNE_LLM_BASE_URL: ""
-      AOTUNE_LLM_MODEL: ""
-      AOTUNE_LLM_API_KEY: ""
-      AOTUNE_LLM_TIMEOUT_SECONDS: "60"
+      AOTUNE_DEFAULT_LLM_PROFILE: ${AOTUNE_DEFAULT_LLM_PROFILE:-default}
+      AOTUNE_LLM_BASE_URL: ${AOTUNE_LLM_BASE_URL:-}
+      AOTUNE_LLM_MODEL: ${AOTUNE_LLM_MODEL:-}
+      AOTUNE_LLM_API_KEY: ${AOTUNE_LLM_API_KEY:-}
+      AOTUNE_LLM_TIMEOUT_SECONDS: ${AOTUNE_LLM_TIMEOUT_SECONDS:-60}
     ports:
       - "8000:8000"
     depends_on:

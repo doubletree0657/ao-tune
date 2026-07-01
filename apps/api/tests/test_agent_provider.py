@@ -5,6 +5,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+import app.agents.lyrics_learning_provider_factory as provider_factory
 from app.agents.lyrics_learning_prompt import (
     PROMPT_CONTRACT_VERSION,
     SYSTEM_PROMPT,
@@ -17,6 +18,7 @@ from app.agents.lyrics_learning_provider import (
 from app.agents.lyrics_learning_provider_factory import (
     ProviderConfigurationError,
     get_lyrics_learning_agent_provider,
+    resolve_agent_provider_name,
 )
 from app.config import Settings
 from app.main import app
@@ -37,7 +39,6 @@ def openai_settings() -> Settings:
     return Settings(
         agent_provider="openai-compatible",
         default_llm_profile="default",
-        llm_provider="openai-compatible",
         llm_base_url="https://llm.example.test/v1",
         llm_model="example-model",
         llm_api_key="test-key",
@@ -61,15 +62,108 @@ def chat_response(content: str) -> httpx.Response:
     )
 
 
-def test_settings_default_to_fake_without_credentials(tmp_path: Path) -> None:
+def test_settings_default_to_development_auto_without_credentials(
+    tmp_path: Path,
+) -> None:
     settings = Settings.from_env({}, env_file=tmp_path / "missing.env")
 
-    assert settings.agent_provider == "fake"
+    assert settings.app_env == "development"
+    assert settings.agent_provider == "auto"
     assert settings.llm_api_key is None
     assert isinstance(
         get_lyrics_learning_agent_provider(settings),
         FakeLyricsLearningAgentProvider,
     )
+
+
+def settings_for(
+    app_env: str,
+    agent_provider: str,
+    llm_config: str,
+) -> Settings:
+    values = {
+        "none": {},
+        "partial": {
+            "llm_base_url": "https://llm.example.test/v1",
+            "llm_model": "example-model",
+        },
+        "complete": {
+            "llm_base_url": "https://llm.example.test/v1",
+            "llm_model": "example-model",
+            "llm_api_key": "test-key",
+        },
+    }[llm_config]
+    return Settings(
+        app_env=app_env,
+        agent_provider=agent_provider,
+        **values,
+    )
+
+
+@pytest.mark.parametrize(
+    ("app_env", "agent_provider", "llm_config", "expected"),
+    [
+        ("test", "auto", "none", "fake"),
+        ("test", "auto", "partial", "fake"),
+        ("test", "auto", "complete", "fake"),
+        ("test", "fake", "none", "fake"),
+        ("test", "fake", "partial", "fake"),
+        ("test", "fake", "complete", "fake"),
+        ("test", "openai-compatible", "none", "error"),
+        ("test", "openai-compatible", "partial", "error"),
+        ("test", "openai-compatible", "complete", "error"),
+        ("development", "auto", "none", "fake"),
+        ("development", "auto", "partial", "error"),
+        ("development", "auto", "complete", "openai-compatible"),
+        ("development", "fake", "none", "fake"),
+        ("development", "fake", "partial", "fake"),
+        ("development", "fake", "complete", "fake"),
+        ("development", "openai-compatible", "none", "error"),
+        ("development", "openai-compatible", "partial", "error"),
+        ("development", "openai-compatible", "complete", "openai-compatible"),
+        ("production", "auto", "none", "error"),
+        ("production", "auto", "partial", "error"),
+        ("production", "auto", "complete", "openai-compatible"),
+        ("production", "fake", "none", "error"),
+        ("production", "fake", "partial", "error"),
+        ("production", "fake", "complete", "error"),
+        ("production", "openai-compatible", "none", "error"),
+        ("production", "openai-compatible", "partial", "error"),
+        ("production", "openai-compatible", "complete", "openai-compatible"),
+    ],
+)
+def test_agent_provider_resolution_matrix(
+    app_env: str,
+    agent_provider: str,
+    llm_config: str,
+    expected: str,
+) -> None:
+    settings = settings_for(app_env, agent_provider, llm_config)
+
+    if expected == "error":
+        with pytest.raises(ProviderConfigurationError):
+            resolve_agent_provider_name(settings)
+    else:
+        assert resolve_agent_provider_name(settings) == expected
+
+
+def test_test_mode_auto_with_complete_configuration_never_constructs_real_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_if_constructed(*args: object, **kwargs: object) -> None:
+        raise AssertionError("Real provider must not be constructed in test mode")
+
+    monkeypatch.setattr(
+        provider_factory,
+        "OpenAICompatibleLyricsLearningAgentProvider",
+        fail_if_constructed,
+    )
+
+    provider = get_lyrics_learning_agent_provider(
+        settings_for("test", "auto", "complete")
+    )
+
+    assert isinstance(provider, FakeLyricsLearningAgentProvider)
 
 
 @pytest.mark.parametrize(
@@ -107,6 +201,14 @@ def test_invalid_provider_has_clear_configuration_error() -> None:
         match="Unsupported AOTUNE_AGENT_PROVIDER: unknown",
     ):
         get_lyrics_learning_agent_provider(Settings(agent_provider="unknown"))
+
+
+def test_invalid_app_env_has_clear_configuration_error() -> None:
+    with pytest.raises(
+        ProviderConfigurationError,
+        match="Unsupported AOTUNE_APP_ENV: staging",
+    ):
+        get_lyrics_learning_agent_provider(Settings(app_env="staging"))
 
 
 def test_prompt_contract_separates_lyrics_text_from_study_notes() -> None:
@@ -343,6 +445,7 @@ def test_openai_provider_without_lyrics_text_skips_request() -> None:
 def test_openai_mode_missing_configuration_returns_controlled_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("AOTUNE_APP_ENV", "development")
     monkeypatch.setenv("AOTUNE_AGENT_PROVIDER", "openai-compatible")
     monkeypatch.setenv("AOTUNE_LLM_BASE_URL", "")
     monkeypatch.setenv("AOTUNE_LLM_MODEL", "")

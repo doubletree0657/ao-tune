@@ -9,8 +9,8 @@ uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
 
-`.env.local` is optional and ignored by Git. Keep fake mode for credential-free
-development, or fill the OpenAI-compatible provider values in that file. Never
+`.env.local` is optional and ignored by Git. The development default uses the
+fake provider unless complete OpenAI-compatible values are configured. Never
 commit `.env.local` or real API keys.
 
 Run checks with:
@@ -51,14 +51,14 @@ Copy the committed template for local development:
 cp .env.example .env.local
 ```
 
-The default mode requires no credentials. Edit `.env.local` only when local
-provider configuration is needed:
+The default development mode requires no credentials. Edit `.env.local` only
+when local provider configuration is needed:
 
 ```bash
-AOTUNE_AGENT_PROVIDER=fake
+AOTUNE_APP_ENV=development
+AOTUNE_AGENT_PROVIDER=auto
 AOTUNE_DATABASE_URL=postgresql+asyncpg://aotune:aotune@localhost:5432/aotune
 AOTUNE_DEFAULT_LLM_PROFILE=default
-AOTUNE_LLM_PROVIDER=openai-compatible
 AOTUNE_LLM_BASE_URL=
 AOTUNE_LLM_MODEL=
 AOTUNE_LLM_API_KEY=
@@ -76,10 +76,23 @@ Run migrations before starting the API:
 uv run alembic upgrade head
 ```
 
+`AOTUNE_APP_ENV` accepts `test`, `development`, or `production`; the default is
+`development`. `AOTUNE_AGENT_PROVIDER` accepts `auto`, `fake`, or
+`openai-compatible`; the default is `auto`.
+
+In `test`, `auto` and `fake` resolve to the fake provider, while
+`openai-compatible` is rejected. In `development`, `fake` always resolves to
+fake, `openai-compatible` requires complete LLM configuration, and `auto` uses
+fake when no LLM values are present or the real provider when base URL, model,
+and API key are all present. Partial LLM configuration is rejected. In
+`production`, fake is forbidden and `auto` or `openai-compatible` require
+complete LLM configuration before the API starts serving requests.
+
 `openai-compatible` sends a chat completions request to
-`AOTUNE_LLM_BASE_URL/chat/completions`. Base URL, model, and API key are required
-only when that provider is selected. Invalid structured model output returns a
-reviewable draft instead of an unhandled parsing error.
+`AOTUNE_LLM_BASE_URL/chat/completions`. Invalid structured model output returns
+a reviewable draft instead of an unhandled parsing error. Startup logs include
+the app environment, configured provider, resolved provider, profile, and model;
+secrets and user content are not logged.
 
 The prompt contract in `app/agents/lyrics_learning_prompt.py` accepts song
 metadata, a learning goal, user-provided lyrics text, and separate study notes.

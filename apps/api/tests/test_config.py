@@ -19,6 +19,7 @@ def test_settings_load_local_env_file(tmp_path: Path) -> None:
         "\n".join(
             (
                 "AOTUNE_AGENT_PROVIDER=openai-compatible",
+                "AOTUNE_APP_ENV=production",
                 "AOTUNE_DEFAULT_LLM_PROFILE=local-profile",
                 "AOTUNE_LLM_BASE_URL=https://llm.example.test/v1",
                 "AOTUNE_LLM_MODEL=local-model",
@@ -32,6 +33,7 @@ def test_settings_load_local_env_file(tmp_path: Path) -> None:
     settings = Settings.from_env({}, env_file=env_file)
 
     assert settings.agent_provider == "openai-compatible"
+    assert settings.app_env == "production"
     assert settings.default_llm_profile == "local-profile"
     assert settings.llm_base_url == "https://llm.example.test/v1"
     assert settings.llm_model == "local-model"
@@ -45,6 +47,7 @@ def test_process_environment_overrides_local_env_file(tmp_path: Path) -> None:
         "\n".join(
             (
                 "AOTUNE_AGENT_PROVIDER=openai-compatible",
+                "AOTUNE_APP_ENV=production",
                 "AOTUNE_LLM_MODEL=file-model",
                 "AOTUNE_LLM_TIMEOUT_SECONDS=45",
             )
@@ -55,6 +58,7 @@ def test_process_environment_overrides_local_env_file(tmp_path: Path) -> None:
     settings = Settings.from_env(
         {
             "AOTUNE_AGENT_PROVIDER": "fake",
+            "AOTUNE_APP_ENV": "development",
             "AOTUNE_LLM_MODEL": "process-model",
             "AOTUNE_LLM_TIMEOUT_SECONDS": "30",
         },
@@ -62,6 +66,7 @@ def test_process_environment_overrides_local_env_file(tmp_path: Path) -> None:
     )
 
     assert settings.agent_provider == "fake"
+    assert settings.app_env == "development"
     assert settings.llm_model == "process-model"
     assert settings.llm_timeout_seconds == 30
 
