@@ -61,20 +61,18 @@ docker compose up --build
 
 Compose starts PostgreSQL, runs Alembic migrations, starts the API at
 <http://localhost:8000>, and starts the web app at <http://localhost:3000>.
-By default, Compose runs the API with `AOTUNE_APP_ENV=development` and
-`AOTUNE_AGENT_PROVIDER=auto`, which resolves to the fake provider when no LLM
-base URL, model, and API key are configured.
-
-To run Compose with a local development provider configuration, create an
-untracked `.env.development` at the repository root and start with:
+Compose loads `apps/api/.env.local` for the API container when that file exists.
+If the file is absent or has no LLM configuration, the API defaults to
+`AOTUNE_APP_ENV=development` and `AOTUNE_AGENT_PROVIDER=auto`, which resolves to
+the fake provider.
 
 ```bash
-docker compose --env-file .env.development up --build
+cp apps/api/.env.example apps/api/.env.local
 ```
 
-The file can set `AOTUNE_AGENT_PROVIDER=openai-compatible`,
-`AOTUNE_LLM_BASE_URL`, `AOTUNE_LLM_MODEL`, and `AOTUNE_LLM_API_KEY`. Do not
-commit real API keys.
+Use the same ignored `apps/api/.env.local` file for Docker and host-based API
+development. To run the real provider locally, set `AOTUNE_LLM_BASE_URL`,
+`AOTUNE_LLM_MODEL`, and `AOTUNE_LLM_API_KEY` there. Do not commit real API keys.
 
 Host-based development remains available when you want fast reload loops.
 
@@ -103,11 +101,12 @@ uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
 
-The local environment file is optional. Keep the default `development`/`auto`
-configuration for credential-free development, or add local provider settings to
-`.env.local`.
-Process environment variables override `.env.local` values. Never commit
-`.env.local` or real API keys.
+The local environment file is optional and is also loaded by Docker Compose for
+the API service. Keep the default `development`/`auto` configuration for
+credential-free development, or add local provider settings to `.env.local`.
+Process environment variables override `.env.local` values in host-based API
+development. In Compose, the container database URL is fixed to the `postgres`
+service hostname. Never commit `.env.local` or real API keys.
 
 The API is available at <http://localhost:8000>. Verify it with:
 

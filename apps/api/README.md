@@ -11,7 +11,8 @@ uv run uvicorn app.main:app --reload
 
 `.env.local` is optional and ignored by Git. The development default uses the
 fake provider unless complete OpenAI-compatible values are configured. Never
-commit `.env.local` or real API keys.
+commit `.env.local` or real API keys. Docker Compose also loads this same file
+for the API container at runtime; it is not copied into the image.
 
 Run checks with:
 
@@ -68,7 +69,9 @@ AOTUNE_LLM_TIMEOUT_SECONDS=60
 Configuration precedence is process environment variables first, `.env.local`
 values second, and application defaults last. This lets shell and CI settings
 override local file values. The API starts normally when `.env.local` does not
-exist.
+exist. In Docker Compose, `apps/api/.env.local` is loaded as an optional runtime
+env file and `AOTUNE_DATABASE_URL` is overridden to use the `postgres` service
+hostname.
 
 Run migrations before starting the API:
 
