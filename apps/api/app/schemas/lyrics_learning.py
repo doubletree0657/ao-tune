@@ -2,6 +2,15 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+GENERATED_SECTION_DEFINITIONS = (
+    ("romaji_alignment", "Romaji alignment"),
+    ("chinese_pronunciation", "Approximate Chinese pronunciation"),
+    ("line_by_line_meaning", "Line-by-line meaning"),
+    ("pronunciation_notes", "Pronunciation notes"),
+    ("sing_along_notes", "Sing-along notes"),
+    ("review_cards", "Review cards and learning artifacts"),
+)
+
 
 class LyricsLearningDraftRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
@@ -102,3 +111,31 @@ class LyricsLearningDraftResponse(BaseModel):
         alias="agentOutput",
     )
     generation_error: str | None = Field(default=None, alias="generationError")
+
+
+def build_generated_sections(
+    status: str,
+    provider_mode: str,
+) -> list[GeneratedSection]:
+    if status == "pending_agent_generation":
+        section_status = "pending"
+        section_value = "Pending agent generation"
+    elif provider_mode == "generation_failed":
+        section_status = "needs_review"
+        section_value = "Generation needs review"
+    elif status == "generated":
+        section_status = "generated"
+        section_value = "Generated draft available"
+    else:
+        section_status = "needs_review"
+        section_value = "Generated draft needs review"
+
+    return [
+        GeneratedSection(
+            key=key,
+            label=label,
+            status=section_status,
+            value=section_value,
+        )
+        for key, label in GENERATED_SECTION_DEFINITIONS
+    ]

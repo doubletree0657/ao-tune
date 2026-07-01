@@ -23,6 +23,7 @@ def load_config_values(
 @dataclass(frozen=True)
 class Settings:
     agent_provider: str = "fake"
+    database_url: str = "postgresql+asyncpg://aotune:aotune@localhost:5432/aotune"
     default_llm_profile: str = "default"
     llm_provider: str = "openai-compatible"
     llm_base_url: str | None = None
@@ -44,6 +45,10 @@ class Settings:
 
         return cls(
             agent_provider=values.get("AOTUNE_AGENT_PROVIDER", "fake"),
+            database_url=values.get(
+                "AOTUNE_DATABASE_URL",
+                "postgresql+asyncpg://aotune:aotune@localhost:5432/aotune",
+            ),
             default_llm_profile=values.get(
                 "AOTUNE_DEFAULT_LLM_PROFILE",
                 "default",

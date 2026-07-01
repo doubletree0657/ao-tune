@@ -15,13 +15,43 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
+  migrate:
+    build:
+      context: ./apps/api
+    environment:
+      AOTUNE_DATABASE_URL: postgresql+asyncpg://aotune:aotune@postgres:5432/aotune
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ./apps/api
+    environment:
+      AOTUNE_AGENT_PROVIDER: fake
+      AOTUNE_DATABASE_URL: postgresql+asyncpg://aotune:aotune@postgres:5432/aotune
+      AOTUNE_DEFAULT_LLM_PROFILE: default
+      AOTUNE_LLM_PROVIDER: openai-compatible
+      AOTUNE_LLM_BASE_URL: ""
+      AOTUNE_LLM_MODEL: ""
+      AOTUNE_LLM_API_KEY: ""
+      AOTUNE_LLM_TIMEOUT_SECONDS: "60"
     ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ./apps/web
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
 
 volumes:
   postgres_data:
-  redis_data:

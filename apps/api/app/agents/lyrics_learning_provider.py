@@ -5,14 +5,17 @@ from uuid import uuid4
 import httpx
 from pydantic import ValidationError
 
-from app.agents.lyrics_learning_prompt import SYSTEM_PROMPT, build_user_prompt
+from app.agents.lyrics_learning_prompt import (
+    SYSTEM_PROMPT,
+    build_user_prompt,
+)
 from app.config import Settings
 from app.schemas.lyrics_learning import (
-    GeneratedSection,
     LyricsLearningAgentOutput,
     LyricsLearningDraftRequest,
     LyricsLearningDraftResponse,
     ProviderMetadata,
+    build_generated_sections,
 )
 
 
@@ -24,15 +27,6 @@ class LyricsLearningAgentProvider(Protocol):
 
 
 class FakeLyricsLearningAgentProvider:
-    _generated_sections = (
-        ("romaji_alignment", "Romaji alignment"),
-        ("chinese_pronunciation", "Approximate Chinese pronunciation"),
-        ("line_by_line_meaning", "Line-by-line meaning"),
-        ("pronunciation_notes", "Pronunciation notes"),
-        ("sing_along_notes", "Sing-along notes"),
-        ("review_cards", "Review cards and learning artifacts"),
-    )
-
     def __init__(self, profile: str = "default") -> None:
         self._profile = profile
 
@@ -40,16 +34,6 @@ class FakeLyricsLearningAgentProvider:
         self,
         request: LyricsLearningDraftRequest,
     ) -> LyricsLearningDraftResponse:
-        sections = [
-            GeneratedSection(
-                key=key,
-                label=label,
-                status="pending",
-                value="Pending agent generation",
-            )
-            for key, label in self._generated_sections
-        ]
-
         return LyricsLearningDraftResponse(
             id=str(uuid4()),
             song_title=request.song_title,
@@ -60,7 +44,10 @@ class FakeLyricsLearningAgentProvider:
             lyrics_text=request.lyrics_text,
             study_notes=request.study_notes,
             user_context=request.study_notes,
-            generated_sections=sections,
+            generated_sections=build_generated_sections(
+                status="pending_agent_generation",
+                provider_mode="pending_agent_generation",
+            ),
             provider_metadata=ProviderMetadata(
                 provider="fake",
                 model=None,
@@ -223,18 +210,11 @@ class OpenAICompatibleLyricsLearningAgentProvider:
         needs_review = not output.line_cards or any(
             card.needs_review for card in output.line_cards
         )
-        section_status = "needs_review" if needs_review else "generated"
         status = "needs_review" if needs_review else "generated"
 
         return self._build_response(
             request=request,
             status=status,
-            section_status=section_status,
-            section_value=(
-                "Generated draft needs review"
-                if needs_review
-                else "Generated draft available"
-            ),
             mode=mode,
             output=output,
         )
@@ -247,8 +227,6 @@ class OpenAICompatibleLyricsLearningAgentProvider:
         return self._build_response(
             request=request,
             status="needs_review",
-            section_status="needs_review",
-            section_value="Generation needs review",
             mode="generation_failed",
             output=None,
             generation_error=error_message,
@@ -258,21 +236,10 @@ class OpenAICompatibleLyricsLearningAgentProvider:
         self,
         request: LyricsLearningDraftRequest,
         status: str,
-        section_status: str,
-        section_value: str,
         mode: str,
         output: LyricsLearningAgentOutput | None,
         generation_error: str | None = None,
     ) -> LyricsLearningDraftResponse:
-        sections = [
-            GeneratedSection(
-                key=key,
-                label=label,
-                status=section_status,
-                value=section_value,
-            )
-            for key, label in FakeLyricsLearningAgentProvider._generated_sections
-        ]
         return LyricsLearningDraftResponse(
             id=str(uuid4()),
             song_title=request.song_title,
@@ -283,7 +250,10 @@ class OpenAICompatibleLyricsLearningAgentProvider:
             lyrics_text=request.lyrics_text,
             study_notes=request.study_notes,
             user_context=request.study_notes,
-            generated_sections=sections,
+            generated_sections=build_generated_sections(
+                status=status,
+                provider_mode=mode,
+            ),
             provider_metadata=ProviderMetadata(
                 provider="openai-compatible",
                 model=self._settings.llm_model,

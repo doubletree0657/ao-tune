@@ -12,6 +12,29 @@ from app.schemas.lyrics_learning import (
 from app.services.lyrics_learning_service import LyricsLearningDraftService
 
 
+class InMemoryLyricsLearningArtifactRepository:
+    def __init__(self) -> None:
+        self.drafts: dict[str, LyricsLearningDraftResponse] = {}
+
+    async def create(
+        self,
+        draft: LyricsLearningDraftResponse,
+        prompt_contract_version: str,
+    ) -> LyricsLearningDraftResponse:
+        self.drafts[draft.id] = draft
+        return draft
+
+    async def get(self, artifact_id: str) -> LyricsLearningDraftResponse | None:
+        return self.drafts.get(artifact_id)
+
+
+def fake_service() -> LyricsLearningDraftService:
+    return LyricsLearningDraftService(
+        provider=FakeLyricsLearningAgentProvider(),
+        repository=InMemoryLyricsLearningArtifactRepository(),
+    )
+
+
 async def get(path: str) -> httpx.Response:
     transport = httpx.ASGITransport(app=app)
 
@@ -76,6 +99,11 @@ def test_workspace_templates() -> None:
 def test_create_lyrics_learning_draft(monkeypatch) -> None:
     monkeypatch.setenv("AOTUNE_AGENT_PROVIDER", "fake")
     monkeypatch.setenv("AOTUNE_DEFAULT_LLM_PROFILE", "default")
+
+    async def get_fake_service() -> LyricsLearningDraftService:
+        return fake_service()
+
+    app.dependency_overrides[get_lyrics_learning_draft_service] = get_fake_service
     response = asyncio.run(
         post(
             "/api/lyrics-learning/drafts",
@@ -88,6 +116,7 @@ def test_create_lyrics_learning_draft(monkeypatch) -> None:
             },
         )
     )
+    app.dependency_overrides.clear()
     draft = response.json()
 
     assert response.status_code == 201
@@ -145,7 +174,10 @@ def test_create_lyrics_learning_draft_uses_agent_provider() -> None:
             return await self.fake_provider.create_draft(request)
 
     provider = TrackingProvider()
-    service = LyricsLearningDraftService(provider=provider)
+    service = LyricsLearningDraftService(
+        provider=provider,
+        repository=InMemoryLyricsLearningArtifactRepository(),
+    )
 
     async def get_tracking_service() -> LyricsLearningDraftService:
         return service

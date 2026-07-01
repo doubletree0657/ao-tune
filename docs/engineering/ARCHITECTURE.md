@@ -25,23 +25,25 @@ backend or agent orchestration concerns in React components.
 
 The API owns HTTP contracts and future application services. Current routes are
 limited to health information, workspace template placeholders, and Japanese
-Lyrics Learning draft creation. Lyrics draft routes delegate to an application
-service, which calls a provider selected from environment configuration. The
-default provider is a local fake that returns pending sections without external
-calls. The OpenAI-compatible adapter uses the configured chat completions API
-and validates model output against Pydantic schemas before returning it. Model
-output that cannot be validated becomes a reviewable artifact with a controlled
-error message. Provider selection remains backend-only; the frontend does not
-expose model switching. Route handlers should remain thin, with domain logic
-moved into focused services only when that logic exists.
+Lyrics Learning draft creation/loading. Lyrics draft routes delegate to an
+application service, which calls a provider selected from environment
+configuration before opening a PostgreSQL transaction to persist the artifact
+and line cards atomically. The default provider is a local fake that returns
+pending sections without external calls. The OpenAI-compatible adapter uses the
+configured chat completions API and validates model output against Pydantic
+schemas before returning it. Model output that cannot be validated becomes a
+reviewable artifact with a controlled error message. Provider selection remains
+backend-only; the frontend does not expose model switching. Route handlers
+should remain thin, with domain logic moved into focused services only when that
+logic exists.
 
 ## Current Development Runtime
 
-The frontend runs locally through Node.js and npm, and the backend runs locally
-through uv. Docker Compose currently manages only external PostgreSQL and Redis
-containers for development. The application does not connect to those services
-yet, and a full Docker-based frontend and backend runtime is planned for a later
-phase.
+Docker Compose starts PostgreSQL, runs Alembic migrations through a one-shot
+container, then starts the FastAPI backend and Next.js frontend. Host-based
+development remains available through Node.js/npm and uv. PostgreSQL is used by
+the current Japanese Lyrics Learning artifact persistence slice; Redis is not
+part of the default runtime.
 
 ## Planned Service Boundaries
 

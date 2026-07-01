@@ -5,6 +5,7 @@ Minimal FastAPI service for the AoTune workspace application.
 ```bash
 uv sync
 cp .env.example .env.local
+uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
 
@@ -18,6 +19,9 @@ Run checks with:
 uv run ruff check .
 uv run pytest
 ```
+
+PostgreSQL persistence tests require `AOTUNE_TEST_DATABASE_URL`; CI points this
+at an isolated `aotune_test` database.
 
 Create a lyrics-learning draft through the fake agent provider with:
 
@@ -34,9 +38,10 @@ curl -X POST http://localhost:8000/api/lyrics-learning/drafts \
 ```
 
 The route delegates to `LyricsLearningDraftService`, which calls the
-`LyricsLearningAgentProvider` abstraction. The current fake provider returns
-pending generated sections only. It does not fetch lyrics, call an LLM, or
-persist the draft.
+`LyricsLearningAgentProvider` abstraction before opening a database transaction.
+The current fake provider returns pending generated sections only. It does not
+fetch lyrics or call an LLM. The service persists the resulting artifact and any
+line cards in PostgreSQL.
 
 ## Agent Provider Configuration
 
@@ -51,6 +56,7 @@ provider configuration is needed:
 
 ```bash
 AOTUNE_AGENT_PROVIDER=fake
+AOTUNE_DATABASE_URL=postgresql+asyncpg://aotune:aotune@localhost:5432/aotune
 AOTUNE_DEFAULT_LLM_PROFILE=default
 AOTUNE_LLM_PROVIDER=openai-compatible
 AOTUNE_LLM_BASE_URL=
@@ -63,6 +69,12 @@ Configuration precedence is process environment variables first, `.env.local`
 values second, and application defaults last. This lets shell and CI settings
 override local file values. The API starts normally when `.env.local` does not
 exist.
+
+Run migrations before starting the API:
+
+```bash
+uv run alembic upgrade head
+```
 
 `openai-compatible` sends a chat completions request to
 `AOTUNE_LLM_BASE_URL/chat/completions`. Base URL, model, and API key are required
@@ -80,3 +92,9 @@ The response keeps pending `generatedSections` for fake mode. Real structured
 output is returned in `agentOutput`, with line cards containing romaji,
 approximate Chinese pronunciation, meaning, pronunciation notes, sing-along
 notes, confidence, and review state.
+
+Load a saved draft with:
+
+```bash
+curl http://localhost:8000/api/lyrics-learning/drafts/<id>
+```

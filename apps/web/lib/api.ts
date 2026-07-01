@@ -114,3 +114,20 @@ export async function createLyricsLearningDraft(
 
   return (await response.json()) as LyricsLearningDraft;
 }
+
+export async function getLyricsLearningDraft(
+  draftId: string,
+): Promise<LyricsLearningDraft> {
+  const response = await fetch(
+    `${apiBaseUrl}/api/lyrics-learning/drafts/${draftId}`,
+  );
+
+  if (!response.ok) {
+    throw new LyricsLearningApiError(
+      await getApiErrorMessage(response),
+      response.status,
+    );
+  }
+
+  return (await response.json()) as LyricsLearningDraft;
+}

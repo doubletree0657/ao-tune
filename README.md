@@ -34,9 +34,10 @@ The project aims to be calm and literary in mood, while remaining practical in e
 - Next.js / React / TypeScript
 - FastAPI / Python
 - uv for backend dependencies and virtual environments
-- PostgreSQL and Redis containers for future application integration
+- PostgreSQL 16 for durable Japanese Lyrics Learning artifacts
+- SQLAlchemy async, asyncpg, and Alembic for backend persistence
 - LangGraph or OpenAI Agents SDK planned
-- Docker Compose for local external services
+- Docker Compose for the local application runtime
 
 ## Repository Structure
 
@@ -52,9 +53,16 @@ ao-tune/
 
 ## Local Development
 
-The current development mode runs the frontend and backend directly on the host.
-Docker Compose manages PostgreSQL and Redis as external services when needed;
-the application does not connect to them yet.
+A clean clone can run the current application with Docker only:
+
+```bash
+docker compose up --build
+```
+
+Compose starts PostgreSQL, runs Alembic migrations, starts the API at
+<http://localhost:8000>, and starts the web app at <http://localhost:3000>.
+
+Host-based development remains available when you want fast reload loops.
 
 Prerequisites: Node.js 22, npm, Python 3.12, uv, and Docker with the Compose
 plugin when running the external services.
@@ -62,10 +70,14 @@ plugin when running the external services.
 ### External Services
 
 ```bash
-docker compose up -d postgres redis
+docker compose up -d postgres
+cd apps/api
+uv run alembic upgrade head
 ```
 
-These services are optional for the current Phase 0 application foundation.
+The backend reads `AOTUNE_DATABASE_URL`. For host-based development the default
+is `postgresql+asyncpg://aotune:aotune@localhost:5432/aotune`; inside Compose
+the database hostname is `postgres`.
 
 ### Backend
 
@@ -73,6 +85,7 @@ These services are optional for the current Phase 0 application foundation.
 cp apps/api/.env.example apps/api/.env.local
 cd apps/api
 uv sync
+uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
 
@@ -86,6 +99,16 @@ The API is available at <http://localhost:8000>. Verify it with:
 ```bash
 curl http://localhost:8000/health
 curl http://localhost:8000/api/workspaces/templates
+```
+
+Create and load a persisted lyrics-learning draft:
+
+```bash
+curl -X POST http://localhost:8000/api/lyrics-learning/drafts \
+  -H "Content-Type: application/json" \
+  -d '{"songTitle":"Sample","artist":"Sample artist","learningGoal":"Practice pronunciation."}'
+
+curl http://localhost:8000/api/lyrics-learning/drafts/<id>
 ```
 
 ### Frontend
@@ -114,11 +137,8 @@ npm run typecheck
 npm run build
 ```
 
-### Future Docker Runtime
-
-Running the complete application with `docker compose up --build` is planned for
-a later phase. The current Compose file intentionally manages only PostgreSQL
-and Redis, not the frontend or backend processes.
+PostgreSQL persistence tests require `AOTUNE_TEST_DATABASE_URL` and are run in
+CI against an isolated `aotune_test` database.
 
 ## Roadmap
 
