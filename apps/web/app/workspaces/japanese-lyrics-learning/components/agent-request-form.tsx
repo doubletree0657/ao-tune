@@ -33,14 +33,14 @@ export default function AgentRequestForm({
           <p className="artifact-kicker">Song-first request</p>
           <h3>Tell AoTune what song you want to study.</h3>
         </div>
-        <span>Local only</span>
+        <span>Artifact draft</span>
       </div>
 
       <p className="local-only-note">
         Lyrics text is provided by you locally and sent to the AoTune API for a
         text-based pronunciation draft. Study notes guide the agent but are not
-        treated as lyric lines. Draft inputs and edits are autosaved in this
-        browser only.
+        treated as lyric lines. Unsaved browser edits are kept only as recovery
+        for the current working artifact.
       </p>
 
       <div className="request-fields">

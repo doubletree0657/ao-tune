@@ -88,23 +88,6 @@ export default function JapaneseLyricsLearningPage() {
 
         <SongAgentRequest />
       </section>
-
-      <section className="workspace-section" aria-labelledby="progress-heading">
-        <div className="section-heading">
-          <p className="eyebrow">Personal artifacts</p>
-          <h2 id="progress-heading">Saved learning and progress</h2>
-        </div>
-
-        <div className="empty-artifacts">
-          <p className="empty-artifacts-title">Your song notes will gather here.</p>
-          <p>
-            Future saved artifacts may include generated line cards,
-            pronunciation guidance, sing-along observations, review cards, and
-            progress across repeated listening sessions.
-          </p>
-          <span>Static placeholder for Phase 1A</span>
-        </div>
-      </section>
     </main>
   );
 }

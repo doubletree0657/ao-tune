@@ -70,6 +70,19 @@ export type LyricsLearningDraft = {
   generationError: string | null;
 };
 
+export type LyricsLearningDraftSummary = {
+  id: string;
+  songTitle: string;
+  artist: string;
+  status: "pending_agent_generation" | "generated" | "needs_review";
+  provider: string;
+  model: string | null;
+  lineCardCount: number;
+  needsReviewCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
   "http://localhost:8000";
@@ -145,6 +158,23 @@ export async function getLyricsLearningDraft(
   }
 
   return (await response.json()) as LyricsLearningDraft;
+}
+
+export async function listLyricsLearningDrafts(
+  limit = 50,
+): Promise<LyricsLearningDraftSummary[]> {
+  const response = await fetch(
+    `${apiBaseUrl}/api/lyrics-learning/drafts?limit=${limit}`,
+  );
+
+  if (!response.ok) {
+    throw new LyricsLearningApiError(
+      await getApiErrorMessage(response),
+      response.status,
+    );
+  }
+
+  return (await response.json()) as LyricsLearningDraftSummary[];
 }
 
 export async function updateLyricsLearningDraft(

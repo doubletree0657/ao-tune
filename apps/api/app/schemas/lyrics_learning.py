@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -88,6 +89,25 @@ class LyricsLearningDraftUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     line_cards: list[LyricsLineCardUpdate] = Field(alias="lineCards")
+
+
+class LyricsLearningDraftSummary(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    song_title: str = Field(alias="songTitle")
+    artist: str
+    status: Literal[
+        "pending_agent_generation",
+        "generated",
+        "needs_review",
+    ]
+    provider: str
+    model: str | None = None
+    line_card_count: int = Field(alias="lineCardCount")
+    needs_review_count: int = Field(alias="needsReviewCount")
+    created_at: datetime = Field(alias="createdAt")
+    updated_at: datetime = Field(alias="updatedAt")
 
 
 class LyricsLearningAgentOutput(BaseModel):

@@ -115,7 +115,7 @@ curl http://localhost:8000/health
 curl http://localhost:8000/api/workspaces/templates
 ```
 
-Create, update, and load a persisted lyrics-learning draft:
+Create, list, update, and load persisted lyrics-learning drafts:
 
 ```bash
 curl -X POST http://localhost:8000/api/lyrics-learning/drafts \
@@ -124,10 +124,17 @@ curl -X POST http://localhost:8000/api/lyrics-learning/drafts \
 
 curl http://localhost:8000/api/lyrics-learning/drafts/<id>
 
+curl "http://localhost:8000/api/lyrics-learning/drafts?limit=50"
+
 curl -X PATCH http://localhost:8000/api/lyrics-learning/drafts/<id> \
   -H "Content-Type: application/json" \
   -d '{"lineCards":[{"lineNumber":1,"romaji":"sample","approximateChinesePronunciation":null,"meaning":"sample meaning","pronunciationNotes":[],"singAlongNotes":[],"needsReview":false}]}'
 ```
+
+The list route returns compact artifact summaries only: ID, song title, artist,
+status, provider/model, line-card counts, review counts, and timestamps. The web
+workspace uses this list to open saved artifacts, edit line cards, save changes,
+and refresh the selected artifact in the library.
 
 ### Frontend
 

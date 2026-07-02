@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.lyrics_learning_provider import ProviderRequestError
@@ -16,6 +16,7 @@ from app.repositories.lyrics_learning_repository import (
 from app.schemas.lyrics_learning import (
     LyricsLearningDraftRequest,
     LyricsLearningDraftResponse,
+    LyricsLearningDraftSummary,
     LyricsLearningDraftUpdateRequest,
 )
 from app.services.lyrics_learning_service import (
@@ -69,6 +70,20 @@ async def create_lyrics_learning_draft(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(error),
         ) from error
+
+
+@router.get(
+    "/drafts",
+    response_model=list[LyricsLearningDraftSummary],
+)
+async def list_lyrics_learning_drafts(
+    service: Annotated[
+        LyricsLearningDraftService,
+        Depends(get_lyrics_learning_draft_service),
+    ],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> list[LyricsLearningDraftSummary]:
+    return await service.list_drafts(limit)
 
 
 @router.get(

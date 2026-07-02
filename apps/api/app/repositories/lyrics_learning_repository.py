@@ -1,7 +1,7 @@
 from typing import Protocol
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -12,6 +12,7 @@ from app.models.lyrics_learning import (
 from app.schemas.lyrics_learning import (
     LyricsLearningAgentOutput,
     LyricsLearningDraftResponse,
+    LyricsLearningDraftSummary,
     LyricsLearningDraftUpdateRequest,
     LyricsLineCard,
     ProviderMetadata,
@@ -31,6 +32,8 @@ class LyricsLearningArtifactRepository(Protocol):
     ) -> LyricsLearningDraftResponse: ...
 
     async def get(self, artifact_id: str) -> LyricsLearningDraftResponse | None: ...
+
+    async def list(self, limit: int) -> list[LyricsLearningDraftSummary]: ...
 
     async def update_line_cards(
         self,
@@ -107,6 +110,54 @@ class SQLAlchemyLyricsLearningArtifactRepository:
         if artifact is None:
             return None
         return artifact_to_response(artifact)
+
+    async def list(self, limit: int) -> list[LyricsLearningDraftSummary]:
+        line_card_count = func.count(LyricsLearningLineCard.id)
+        needs_review_count = func.coalesce(
+            func.sum(
+                case(
+                    (LyricsLearningLineCard.needs_review.is_(True), 1),
+                    else_=0,
+                )
+            ),
+            0,
+        )
+        result = await self._session.execute(
+            select(
+                LyricsLearningArtifact.id,
+                LyricsLearningArtifact.song_title,
+                LyricsLearningArtifact.artist,
+                LyricsLearningArtifact.status,
+                LyricsLearningArtifact.provider,
+                LyricsLearningArtifact.provider_model,
+                LyricsLearningArtifact.created_at,
+                LyricsLearningArtifact.updated_at,
+                line_card_count.label("line_card_count"),
+                needs_review_count.label("needs_review_count"),
+            )
+            .outerjoin(LyricsLearningArtifact.line_cards)
+            .group_by(LyricsLearningArtifact.id)
+            .order_by(
+                LyricsLearningArtifact.updated_at.desc(),
+                LyricsLearningArtifact.id.asc(),
+            )
+            .limit(limit)
+        )
+        return [
+            LyricsLearningDraftSummary(
+                id=str(row.id),
+                song_title=row.song_title,
+                artist=row.artist,
+                status=row.status,
+                provider=row.provider,
+                model=row.provider_model,
+                line_card_count=int(row.line_card_count),
+                needs_review_count=int(row.needs_review_count),
+                created_at=row.created_at,
+                updated_at=row.updated_at,
+            )
+            for row in result
+        ]
 
     async def update_line_cards(
         self,
@@ -188,6 +239,7 @@ class SQLAlchemyLyricsLearningArtifactRepository:
                 if any(card.needs_review for card in request.line_cards)
                 else "generated"
             )
+            artifact.updated_at = func.now()
             await self._session.flush()
             return artifact_to_response(artifact)
 

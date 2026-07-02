@@ -122,6 +122,17 @@ Load a saved draft with:
 curl http://localhost:8000/api/lyrics-learning/drafts/<id>
 ```
 
+List saved draft summaries with:
+
+```bash
+curl "http://localhost:8000/api/lyrics-learning/drafts?limit=50"
+```
+
+The summary response contains `id`, `songTitle`, `artist`, `status`,
+`provider`, `model`, `lineCardCount`, `needsReviewCount`, `createdAt`, and
+`updatedAt`. It does not include lyrics text, study notes, generated sections,
+or full line-card content.
+
 Persist review edits by sending the complete current `lineCards` collection.
 Only `lineNumber`, `romaji`, `approximateChinesePronunciation`, `meaning`,
 `pronunciationNotes`, `singAlongNotes`, and `needsReview` are accepted.

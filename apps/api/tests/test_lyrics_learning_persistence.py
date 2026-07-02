@@ -1,6 +1,7 @@
 import asyncio
 import os
 from collections.abc import AsyncIterator
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
 from uuid import uuid4
@@ -268,6 +269,24 @@ def editable_line_cards(draft: dict) -> list[dict]:
     ]
 
 
+async def set_artifact_updated_at(
+    session_factory: async_sessionmaker[AsyncSession],
+    artifact_id: str,
+    updated_at: str,
+) -> None:
+    async with session_factory() as session:
+        async with session.begin():
+            parsed_updated_at = datetime.fromisoformat(updated_at)
+            await session.execute(
+                text(
+                    "update lyrics_learning_artifacts "
+                    "set updated_at = :updated_at "
+                    "where id = :artifact_id"
+                ),
+                {"artifact_id": artifact_id, "updated_at": parsed_updated_at},
+            )
+
+
 def test_post_persists_and_get_returns_same_contract(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
@@ -305,6 +324,22 @@ def test_post_persists_and_get_returns_same_contract(
             return result.scalar_one()
 
     assert asyncio.run(stored_prompt_version()) == PROMPT_CONTRACT_VERSION
+
+
+def test_list_drafts_returns_empty_list(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    app.dependency_overrides[get_lyrics_learning_draft_service] = override_service(
+        FakeLyricsLearningAgentProvider(),
+        session_factory,
+    )
+    try:
+        response = asyncio.run(get("/api/lyrics-learning/drafts"))
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == []
 
 
 def test_post_persists_generated_line_cards(
@@ -389,6 +424,202 @@ def test_post_persists_generated_line_cards(
         "profile": "default",
         "mode": "structured_generation",
     }
+
+
+def test_list_drafts_returns_compact_summaries_with_counts(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    provider = StaticGeneratedProvider()
+    try:
+        first = create_generated_draft(provider, session_factory)
+        second = create_generated_draft(provider, session_factory)
+        line_cards = editable_line_cards(second)
+        line_cards[0]["needsReview"] = False
+        patch_response = asyncio.run(
+            patch(
+                f"/api/lyrics-learning/drafts/{second['id']}",
+                json={"lineCards": line_cards},
+            )
+        )
+        assert patch_response.status_code == 200
+
+        response = asyncio.run(get("/api/lyrics-learning/drafts"))
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    summaries = response.json()
+    assert {summary["id"] for summary in summaries} == {first["id"], second["id"]}
+    second_summary = next(
+        summary for summary in summaries if summary["id"] == second["id"]
+    )
+    assert second_summary == {
+        "id": second["id"],
+        "songTitle": "Sample song title",
+        "artist": "Sample artist",
+        "status": "needs_review",
+        "provider": "test-provider",
+        "model": "test-model",
+        "lineCardCount": 2,
+        "needsReviewCount": 1,
+        "createdAt": second_summary["createdAt"],
+        "updatedAt": second_summary["updatedAt"],
+    }
+
+
+def test_list_drafts_orders_by_updated_at_descending(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    provider = StaticGeneratedProvider()
+    try:
+        older = create_generated_draft(provider, session_factory)
+        newer = create_generated_draft(provider, session_factory)
+        asyncio.run(
+            set_artifact_updated_at(
+                session_factory,
+                older["id"],
+                "2026-01-01T00:00:00+00:00",
+            )
+        )
+        asyncio.run(
+            set_artifact_updated_at(
+                session_factory,
+                newer["id"],
+                "2026-01-02T00:00:00+00:00",
+            )
+        )
+
+        response = asyncio.run(get("/api/lyrics-learning/drafts"))
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert [summary["id"] for summary in response.json()] == [newer["id"], older["id"]]
+
+
+def test_list_drafts_uses_deterministic_id_tie_breaker(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    provider = StaticGeneratedProvider()
+    try:
+        first = create_generated_draft(provider, session_factory)
+        second = create_generated_draft(provider, session_factory)
+        same_updated_at = "2026-01-01T00:00:00+00:00"
+        asyncio.run(
+            set_artifact_updated_at(session_factory, first["id"], same_updated_at)
+        )
+        asyncio.run(
+            set_artifact_updated_at(session_factory, second["id"], same_updated_at)
+        )
+
+        response = asyncio.run(get("/api/lyrics-learning/drafts"))
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert [summary["id"] for summary in response.json()] == sorted(
+        [first["id"], second["id"]]
+    )
+
+
+def test_list_drafts_validates_limit(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    provider = StaticGeneratedProvider()
+    try:
+        create_generated_draft(provider, session_factory)
+        create_generated_draft(provider, session_factory)
+        valid_response = asyncio.run(get("/api/lyrics-learning/drafts?limit=1"))
+        low_response = asyncio.run(get("/api/lyrics-learning/drafts?limit=0"))
+        high_response = asyncio.run(get("/api/lyrics-learning/drafts?limit=101"))
+    finally:
+        app.dependency_overrides.clear()
+
+    assert valid_response.status_code == 200
+    assert len(valid_response.json()) == 1
+    assert low_response.status_code == 422
+    assert high_response.status_code == 422
+
+
+def test_list_drafts_excludes_full_artifact_content(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    provider = StaticGeneratedProvider()
+    try:
+        create_generated_draft(provider, session_factory)
+        response = asyncio.run(get("/api/lyrics-learning/drafts"))
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    summary = response.json()[0]
+    assert set(summary) == {
+        "id",
+        "songTitle",
+        "artist",
+        "status",
+        "provider",
+        "model",
+        "lineCardCount",
+        "needsReviewCount",
+        "createdAt",
+        "updatedAt",
+    }
+    serialized = response.text
+    assert "lyricsText" not in summary
+    assert "studyNotes" not in summary
+    assert "agentOutput" not in summary
+    assert "generatedSections" not in summary
+    assert "学びたい一行" not in serialized
+    assert "manabitai ichigyou" not in serialized
+
+
+def test_patch_updates_artifact_updated_at_for_listing(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    provider = StaticGeneratedProvider()
+    try:
+        draft = create_generated_draft(provider, session_factory)
+        asyncio.run(
+            set_artifact_updated_at(
+                session_factory,
+                draft["id"],
+                "2026-01-01T00:00:00+00:00",
+            )
+        )
+        before_response = asyncio.run(get("/api/lyrics-learning/drafts"))
+        before_updated_at = before_response.json()[0]["updatedAt"]
+        line_cards = editable_line_cards(draft)
+        line_cards[0]["romaji"] = "updated after old timestamp"
+
+        patch_response = asyncio.run(
+            patch(
+                f"/api/lyrics-learning/drafts/{draft['id']}",
+                json={"lineCards": line_cards},
+            )
+        )
+        after_response = asyncio.run(get("/api/lyrics-learning/drafts"))
+    finally:
+        app.dependency_overrides.clear()
+
+    assert patch_response.status_code == 200
+    assert before_updated_at.startswith("2026-01-01T00:00:00")
+    assert after_response.json()[0]["updatedAt"] > before_updated_at
+
+
+def test_list_drafts_does_not_call_provider(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    provider = StaticGeneratedProvider()
+    try:
+        create_generated_draft(provider, session_factory)
+        provider.create_calls = 0
+        response = asyncio.run(get("/api/lyrics-learning/drafts"))
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert provider.create_calls == 0
 
 
 def test_patch_and_get_round_trip_for_one_edited_card(

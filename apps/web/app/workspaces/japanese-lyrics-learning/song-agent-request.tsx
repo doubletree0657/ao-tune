@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 
 import {
   createLyricsLearningDraft,
+  getLyricsLearningDraft,
+  listLyricsLearningDrafts,
   LyricsLearningApiError,
   updateLyricsLearningDraft,
 } from "@/lib/api";
@@ -11,12 +13,14 @@ import type {
   GeneratedSection,
   LyricsLearningDraft,
   LyricsLearningDraftRequest,
+  LyricsLearningDraftSummary,
   LyricsLearningDraftUpdateRequest,
   LyricsLineCard,
 } from "@/lib/api";
 
 import AgentDraftArtifact from "./components/agent-draft-artifact";
 import AgentRequestForm from "./components/agent-request-form";
+import ArtifactLibrary from "./components/artifact-library";
 import type { SongRequest } from "./components/types";
 
 const defaultRequest: SongRequest = {
@@ -63,11 +67,13 @@ const initialArtifact: LyricsLearningDraft = {
 };
 
 const localDraftStorageKey = "aotune.japanese-lyrics-learning.draft.v1";
+const newArtifactWorkspaceKey = "new-artifact";
 
 type ReviewSaveState = "clean" | "unsaved" | "saving" | "saved" | "error";
 
 type LocalDraft = {
-  version: 1;
+  version: 2;
+  workspaceKey: string;
   request: SongRequest;
   draft: LyricsLearningDraft;
   lineCards: LyricsLineCard[];
@@ -100,6 +106,20 @@ function lineCardsUpdateRequest(
   };
 }
 
+function requestFromDraft(draft: LyricsLearningDraft): SongRequest {
+  return {
+    songTitle: draft.songTitle,
+    artist: draft.artist,
+    learningGoal: draft.learningGoal,
+    lyricsText: draft.lyricsText ?? "",
+    studyNotes: draft.studyNotes ?? "",
+  };
+}
+
+function workspaceKeyForDraft(draft: LyricsLearningDraft) {
+  return draft.id === initialArtifact.id ? newArtifactWorkspaceKey : draft.id;
+}
+
 function readLocalDraft(): LocalDraft | null {
   try {
     const storedValue = window.localStorage.getItem(localDraftStorageKey);
@@ -109,7 +129,8 @@ function readLocalDraft(): LocalDraft | null {
 
     const parsed = JSON.parse(storedValue) as Partial<LocalDraft>;
     if (
-      parsed.version !== 1 ||
+      parsed.version !== 2 ||
+      !parsed.workspaceKey ||
       !parsed.request ||
       !parsed.draft ||
       !Array.isArray(parsed.lineCards) ||
@@ -130,11 +151,36 @@ function requestHasLocalChanges(request: SongRequest) {
   );
 }
 
+function requestHasUnsavedChanges(
+  request: SongRequest,
+  draft: LyricsLearningDraft,
+) {
+  if (draft.id === initialArtifact.id) {
+    return requestHasLocalChanges(request);
+  }
+
+  const serverRequest = requestFromDraft(draft);
+  return (Object.keys(defaultRequest) as (keyof SongRequest)[]).some(
+    (field) => request[field] !== serverRequest[field],
+  );
+}
+
+function reviewHasUnsavedChanges(reviewSaveState: ReviewSaveState) {
+  return reviewSaveState === "unsaved" || reviewSaveState === "error";
+}
+
 export default function SongAgentRequest() {
   const [request, setRequest] = useState<SongRequest>(defaultRequest);
   const [draft, setDraft] = useState<LyricsLearningDraft>(initialArtifact);
   const [editableLineCards, setEditableLineCards] = useState<LyricsLineCard[]>([]);
   const [selectedLineIndex, setSelectedLineIndex] = useState(0);
+  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
+  const [artifactSummaries, setArtifactSummaries] = useState<
+    LyricsLearningDraftSummary[]
+  >([]);
+  const [isLibraryLoading, setIsLibraryLoading] = useState(false);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
+  const [isArtifactLoading, setIsArtifactLoading] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [hasLocalDraft, setHasLocalDraft] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -149,6 +195,11 @@ export default function SongAgentRequest() {
       setRequest(localDraft.request);
       setDraft(localDraft.draft);
       setEditableLineCards(localDraft.lineCards);
+      setSelectedDraftId(
+        localDraft.workspaceKey === newArtifactWorkspaceKey
+          ? null
+          : localDraft.workspaceKey,
+      );
       setSelectedLineIndex(
         Math.min(
           Math.max(localDraft.selectedLineIndex, 0),
@@ -162,14 +213,16 @@ export default function SongAgentRequest() {
   }, []);
 
   useEffect(() => {
+    void refreshArtifactSummaries();
+  }, []);
+
+  useEffect(() => {
     if (!hasHydrated) {
       return;
     }
 
-    const hasUnsavedRequest =
-      draft.id === initialArtifact.id && requestHasLocalChanges(request);
-    const hasUnsavedReviewEdits =
-      reviewSaveState === "unsaved" || reviewSaveState === "error";
+    const hasUnsavedRequest = requestHasUnsavedChanges(request, draft);
+    const hasUnsavedReviewEdits = reviewHasUnsavedChanges(reviewSaveState);
 
     if (!hasUnsavedRequest && !hasUnsavedReviewEdits) {
       try {
@@ -182,7 +235,8 @@ export default function SongAgentRequest() {
     }
 
     const localDraft: LocalDraft = {
-      version: 1,
+      version: 2,
+      workspaceKey: workspaceKeyForDraft(draft),
       request,
       draft,
       lineCards: editableLineCards,
@@ -206,6 +260,53 @@ export default function SongAgentRequest() {
     selectedLineIndex,
   ]);
 
+  async function refreshArtifactSummaries() {
+    setIsLibraryLoading(true);
+    setLibraryError(null);
+
+    try {
+      setArtifactSummaries(await listLyricsLearningDrafts());
+    } catch (requestError) {
+      if (requestError instanceof LyricsLearningApiError) {
+        setLibraryError(requestError.message);
+      } else {
+        setLibraryError(
+          "AoTune could not load saved artifacts. Check the local API and try again.",
+        );
+      }
+    } finally {
+      setIsLibraryLoading(false);
+    }
+  }
+
+  function hasUnsavedChanges() {
+    return (
+      requestHasUnsavedChanges(request, draft) ||
+      reviewHasUnsavedChanges(reviewSaveState)
+    );
+  }
+
+  function confirmDiscardUnsavedChanges() {
+    if (!hasUnsavedChanges()) {
+      return true;
+    }
+    return window.confirm(
+      "Discard unsaved edits and switch to another artifact?",
+    );
+  }
+
+  function applyServerDraft(response: LyricsLearningDraft) {
+    const responseLineCards = cloneLineCards(response);
+    setDraft(response);
+    setRequest(requestFromDraft(response));
+    setEditableLineCards(responseLineCards);
+    setSelectedLineIndex(0);
+    setSelectedDraftId(response.id);
+    setReviewSaveState("clean");
+    setReviewSaveError(null);
+    setError(null);
+  }
+
   function updateField(field: keyof SongRequest, value: string) {
     setRequest((current) => ({ ...current, [field]: value }));
   }
@@ -220,11 +321,8 @@ export default function SongAgentRequest() {
         lyricsText: request.lyricsText.trim() || undefined,
         studyNotes: request.studyNotes.trim() || undefined,
       } satisfies LyricsLearningDraftRequest);
-      setDraft(response);
-      setEditableLineCards(cloneLineCards(response));
-      setSelectedLineIndex(0);
-      setReviewSaveState("clean");
-      setReviewSaveError(null);
+      applyServerDraft(response);
+      await refreshArtifactSummaries();
     } catch (requestError) {
       if (requestError instanceof LyricsLearningApiError) {
         setError(requestError.message);
@@ -235,6 +333,32 @@ export default function SongAgentRequest() {
       }
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function openArtifact(draftId: string) {
+    if (draftId === selectedDraftId) {
+      return;
+    }
+    if (!confirmDiscardUnsavedChanges()) {
+      return;
+    }
+
+    setIsArtifactLoading(true);
+    setLibraryError(null);
+
+    try {
+      applyServerDraft(await getLyricsLearningDraft(draftId));
+    } catch (requestError) {
+      if (requestError instanceof LyricsLearningApiError) {
+        setLibraryError(requestError.message);
+      } else {
+        setLibraryError(
+          "AoTune could not open the selected artifact. Check the local API and try again.",
+        );
+      }
+    } finally {
+      setIsArtifactLoading(false);
     }
   }
 
@@ -259,7 +383,9 @@ export default function SongAgentRequest() {
       );
       const responseLineCards = cloneLineCards(response);
       setDraft(response);
+      setRequest(requestFromDraft(response));
       setEditableLineCards(responseLineCards);
+      setSelectedDraftId(response.id);
       setSelectedLineIndex((currentIndex) =>
         Math.min(
           Math.max(currentIndex, 0),
@@ -267,6 +393,7 @@ export default function SongAgentRequest() {
         ),
       );
       setReviewSaveState("saved");
+      await refreshArtifactSummaries();
     } catch (requestError) {
       setReviewSaveState("error");
       if (requestError instanceof LyricsLearningApiError) {
@@ -279,6 +406,13 @@ export default function SongAgentRequest() {
     }
   }
 
+  function newArtifact() {
+    if (!confirmDiscardUnsavedChanges()) {
+      return;
+    }
+    clearLocalDraft();
+  }
+
   function clearLocalDraft() {
     try {
       window.localStorage.removeItem(localDraftStorageKey);
@@ -289,6 +423,7 @@ export default function SongAgentRequest() {
     setDraft(initialArtifact);
     setEditableLineCards([]);
     setSelectedLineIndex(0);
+    setSelectedDraftId(null);
     setHasLocalDraft(false);
     setError(null);
     setReviewSaveState("clean");
@@ -296,28 +431,39 @@ export default function SongAgentRequest() {
   }
 
   return (
-    <div
-      className={`agent-workbench${draft.agentOutput ? " has-generated-artifact" : ""}`}
-    >
-      <AgentRequestForm
-        error={error}
-        isLoading={isLoading}
-        onFieldChange={updateField}
-        onSubmit={createDraft}
-        request={request}
+    <>
+      <ArtifactLibrary
+        error={libraryError}
+        isLoading={isLibraryLoading || isArtifactLoading}
+        onNewArtifact={newArtifact}
+        onRefresh={refreshArtifactSummaries}
+        onSelectArtifact={openArtifact}
+        selectedDraftId={selectedDraftId}
+        summaries={artifactSummaries}
       />
-      <AgentDraftArtifact
-        draft={draft}
-        hasLocalDraft={hasLocalDraft}
-        lineCards={editableLineCards}
-        onClearLocalDraft={clearLocalDraft}
-        onLineCardsChange={updateLineCards}
-        onSaveReviewEdits={saveReviewEdits}
-        onSelectedLineIndexChange={setSelectedLineIndex}
-        reviewSaveError={reviewSaveError}
-        reviewSaveState={reviewSaveState}
-        selectedLineIndex={selectedLineIndex}
-      />
-    </div>
+      <div
+        className={`agent-workbench${draft.agentOutput ? " has-generated-artifact" : ""}`}
+      >
+        <AgentRequestForm
+          error={error}
+          isLoading={isLoading}
+          onFieldChange={updateField}
+          onSubmit={createDraft}
+          request={request}
+        />
+        <AgentDraftArtifact
+          draft={draft}
+          hasLocalDraft={hasLocalDraft}
+          lineCards={editableLineCards}
+          onClearLocalDraft={clearLocalDraft}
+          onLineCardsChange={updateLineCards}
+          onSaveReviewEdits={saveReviewEdits}
+          onSelectedLineIndexChange={setSelectedLineIndex}
+          reviewSaveError={reviewSaveError}
+          reviewSaveState={reviewSaveState}
+          selectedLineIndex={selectedLineIndex}
+        />
+      </div>
+    </>
   );
 }

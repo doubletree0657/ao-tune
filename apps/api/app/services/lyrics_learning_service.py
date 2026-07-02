@@ -7,6 +7,7 @@ from app.repositories.lyrics_learning_repository import (
 from app.schemas.lyrics_learning import (
     LyricsLearningDraftRequest,
     LyricsLearningDraftResponse,
+    LyricsLearningDraftSummary,
     LyricsLearningDraftUpdateRequest,
 )
 
@@ -37,6 +38,9 @@ class LyricsLearningDraftService:
         draft_id: str,
     ) -> LyricsLearningDraftResponse | None:
         return await self._repository.get(draft_id)
+
+    async def list_drafts(self, limit: int) -> list[LyricsLearningDraftSummary]:
+        return await self._repository.list(limit)
 
     async def update_draft(
         self,
