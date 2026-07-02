@@ -15,6 +15,21 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres-test:
+    image: postgres:16-alpine
+    profiles: ["test"]
+    environment:
+      POSTGRES_DB: aotune_test
+      POSTGRES_USER: aotune
+      POSTGRES_PASSWORD: aotune
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aotune -d aotune_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   migrate:
     build:
       context: ./apps/api
@@ -38,6 +53,21 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+
+  api-test:
+    build:
+      context: ./apps/api
+      args:
+        UV_SYNC_FLAGS: --dev
+    profiles: ["test"]
+    environment:
+      AOTUNE_APP_ENV: test
+      AOTUNE_AGENT_PROVIDER: fake
+      AOTUNE_TEST_DATABASE_URL: postgresql+asyncpg://aotune:aotune@postgres-test:5432/aotune_test
+    command: ["sh", "-c", "uv run ruff check . && uv run pytest"]
+    depends_on:
+      postgres-test:
+        condition: service_healthy
 
   web:
     build:

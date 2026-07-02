@@ -17,12 +17,19 @@ for the API container at runtime; it is not copied into the image.
 Run checks with:
 
 ```bash
+cd ../..
+docker compose --profile test run --rm api-test
+
+cd apps/api
 uv run ruff check .
-uv run pytest
 ```
 
-PostgreSQL persistence tests require `AOTUNE_TEST_DATABASE_URL`; CI points this
-at an isolated `aotune_test` database.
+The Docker test profile starts `postgres-test` with temporary storage and sets
+`AOTUNE_APP_ENV=test`, `AOTUNE_AGENT_PROVIDER=fake`, and
+`AOTUNE_TEST_DATABASE_URL` to the isolated `aotune_test` database. Do not point
+`AOTUNE_TEST_DATABASE_URL` at the development `aotune` database; destructive
+persistence tests refuse to run before migration or truncation unless the target
+database name is explicitly a test database.
 
 Create a lyrics-learning draft through the fake agent provider with:
 

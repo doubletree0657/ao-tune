@@ -2,6 +2,7 @@ import asyncio
 import os
 from collections.abc import AsyncIterator
 from pathlib import Path
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import httpx
@@ -18,6 +19,7 @@ from app.agents.lyrics_learning_provider import (
     ProviderRequestError,
 )
 from app.api.routes.lyrics_learning import get_lyrics_learning_draft_service
+from app.config import Settings
 from app.main import app
 from app.repositories.lyrics_learning_repository import (
     SQLAlchemyLyricsLearningArtifactRepository,
@@ -33,6 +35,7 @@ from app.schemas.lyrics_learning import (
 from app.services.lyrics_learning_service import LyricsLearningDraftService
 
 TEST_DATABASE_URL = os.environ.get("AOTUNE_TEST_DATABASE_URL")
+ALLOWED_TEST_DATABASE_NAME = "aotune_test"
 
 pytestmark = pytest.mark.skipif(
     not TEST_DATABASE_URL,
@@ -43,6 +46,7 @@ pytestmark = pytest.mark.skipif(
 @pytest.fixture(scope="session", autouse=True)
 def migrated_database() -> None:
     assert TEST_DATABASE_URL is not None
+    assert_test_database_is_safe(TEST_DATABASE_URL)
     os.environ["AOTUNE_DATABASE_URL"] = TEST_DATABASE_URL
     config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
     command.upgrade(config, "head")
@@ -51,6 +55,7 @@ def migrated_database() -> None:
 @pytest.fixture
 def session_factory() -> async_sessionmaker[AsyncSession]:
     assert TEST_DATABASE_URL is not None
+    assert_test_database_url_name_is_allowed(TEST_DATABASE_URL)
     engine = create_async_engine(TEST_DATABASE_URL, poolclass=NullPool)
     factory = async_sessionmaker(engine, expire_on_commit=False)
 
@@ -65,6 +70,69 @@ def session_factory() -> async_sessionmaker[AsyncSession]:
 
     asyncio.run(truncate())
     return factory
+
+
+def assert_test_database_is_safe(test_database_url: str) -> None:
+    if os.environ.get("AOTUNE_APP_ENV") != "test":
+        raise RuntimeError(
+            "Refusing to run destructive persistence tests unless "
+            "AOTUNE_APP_ENV=test."
+        )
+
+    test_database_name = assert_test_database_url_name_is_allowed(
+        test_database_url,
+    )
+    development_database_url = Settings.from_env().database_url
+    development_database_name = database_name_from_url(development_database_url)
+    if development_database_name == test_database_name:
+        raise RuntimeError(
+            "Refusing to run destructive persistence tests because "
+            "AOTUNE_DATABASE_URL and AOTUNE_TEST_DATABASE_URL resolve to the "
+            f"same database: {test_database_name}."
+        )
+
+    actual_database_name = asyncio.run(current_database_name(test_database_url))
+    if not is_allowed_test_database_name(actual_database_name):
+        raise RuntimeError(
+            "Refusing to run destructive persistence tests against non-test "
+            f"database: {actual_database_name}."
+        )
+
+
+def assert_test_database_url_name_is_allowed(database_url: str) -> str:
+    database_name = database_name_from_url(database_url)
+    if not is_allowed_test_database_name(database_name):
+        raise RuntimeError(
+            "Refusing to run destructive persistence tests against non-test "
+            f"database: {database_name}."
+        )
+    return database_name
+
+
+def database_name_from_url(database_url: str) -> str:
+    database_name = urlparse(database_url).path.lstrip("/")
+    if not database_name:
+        raise RuntimeError(
+            "Refusing to run destructive persistence tests without an explicit "
+            "test database name."
+        )
+    return database_name
+
+
+def is_allowed_test_database_name(database_name: str) -> bool:
+    return database_name == ALLOWED_TEST_DATABASE_NAME or database_name.endswith(
+        "_test"
+    )
+
+
+async def current_database_name(database_url: str) -> str:
+    engine = create_async_engine(database_url, poolclass=NullPool)
+    try:
+        async with engine.connect() as connection:
+            result = await connection.execute(text("select current_database()"))
+            return result.scalar_one()
+    finally:
+        await engine.dispose()
 
 
 async def post(path: str, json: dict[str, str]) -> httpx.Response:

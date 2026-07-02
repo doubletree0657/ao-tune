@@ -146,17 +146,21 @@ URL, copy `.env.example` to `.env.local` and change
 ### Verification
 
 ```bash
+docker compose --profile test run --rm api-test
+
 cd apps/api
 uv run ruff check .
-uv run pytest
 
 cd ../web
 npm run typecheck
 npm run build
 ```
 
-PostgreSQL persistence tests require `AOTUNE_TEST_DATABASE_URL` and are run in
-CI against an isolated `aotune_test` database.
+The Docker test profile starts an isolated `postgres-test` database named
+`aotune_test` with temporary storage and does not mount the development
+`postgres_data` volume. Do not point `AOTUNE_TEST_DATABASE_URL` at the
+development `aotune` database; persistence tests fail closed before migration or
+truncation unless the target database is explicitly a test database.
 
 ## Roadmap
 
