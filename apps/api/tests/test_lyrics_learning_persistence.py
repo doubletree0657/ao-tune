@@ -9,6 +9,7 @@ import pytest
 from alembic.config import Config
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from alembic import command
 from app.agents.lyrics_learning_prompt import PROMPT_CONTRACT_VERSION
@@ -50,7 +51,7 @@ def migrated_database() -> None:
 @pytest.fixture
 def session_factory() -> async_sessionmaker[AsyncSession]:
     assert TEST_DATABASE_URL is not None
-    engine = create_async_engine(TEST_DATABASE_URL)
+    engine = create_async_engine(TEST_DATABASE_URL, poolclass=NullPool)
     factory = async_sessionmaker(engine, expire_on_commit=False)
 
     async def truncate() -> None:
@@ -72,6 +73,12 @@ async def post(path: str, json: dict[str, str]) -> httpx.Response:
         return await client.post(path, json=json)
 
 
+async def patch(path: str, json: dict[str, object]) -> httpx.Response:
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        return await client.patch(path, json=json)
+
+
 async def get(path: str) -> httpx.Response:
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
@@ -90,6 +97,107 @@ def override_service(
             )
 
     return get_test_service
+
+
+class StaticGeneratedProvider:
+    def __init__(self) -> None:
+        self.create_calls = 0
+
+    async def create_draft(
+        self,
+        request: LyricsLearningDraftRequest,
+    ) -> LyricsLearningDraftResponse:
+        self.create_calls += 1
+        return LyricsLearningDraftResponse(
+            id=str(uuid4()),
+            song_title=request.song_title,
+            artist=request.artist,
+            learning_goal=request.learning_goal,
+            source_type="user_provided",
+            status="needs_review",
+            lyrics_text=request.lyrics_text,
+            study_notes=request.study_notes,
+            user_context=request.study_notes,
+            generated_sections=build_generated_sections(
+                status="needs_review",
+                provider_mode="structured_generation",
+            ),
+            provider_metadata=ProviderMetadata(
+                provider="test-provider",
+                model="test-model",
+                profile="default",
+                mode="structured_generation",
+            ),
+            agent_output=LyricsLearningAgentOutput(
+                line_cards=[
+                    LyricsLineCard(
+                        line_number=1,
+                        original_text="学びたい一行",
+                        romaji="manabitai ichigyou",
+                        approximate_chinese_pronunciation="示例发音提示",
+                        meaning="想学习的一行歌词。",
+                        pronunciation_notes=["注意元音。"],
+                        sing_along_notes=["慢速练习。"],
+                        confidence=0.75,
+                        needs_review=True,
+                    ),
+                    LyricsLineCard(
+                        line_number=2,
+                        original_text="もう一度歌う",
+                        romaji="mou ichido utau",
+                        approximate_chinese_pronunciation="再次歌唱",
+                        meaning="再唱一次。",
+                        pronunciation_notes=["拉长お音。"],
+                        sing_along_notes=["跟着节拍。"],
+                        confidence=0.8,
+                        needs_review=True,
+                    ),
+                ],
+                pronunciation_notes=["Overall pronunciation note."],
+                sing_along_notes=["Overall sing-along note."],
+                review_cards=["Review the reading."],
+            ),
+        )
+
+
+def create_generated_draft(
+    provider: StaticGeneratedProvider,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> dict:
+    app.dependency_overrides[get_lyrics_learning_draft_service] = override_service(
+        provider,
+        session_factory,
+    )
+    response = asyncio.run(
+        post(
+            "/api/lyrics-learning/drafts",
+            json={
+                "songTitle": "Sample song title",
+                "artist": "Sample artist",
+                "learningGoal": "Practice pronunciation.",
+                "lyricsText": "学びたい一行\nもう一度歌う",
+            },
+        )
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
+def editable_line_cards(draft: dict) -> list[dict]:
+    return [
+        {
+            "lineNumber": card["lineNumber"],
+            "romaji": card["romaji"],
+            "approximateChinesePronunciation": card[
+                "approximateChinesePronunciation"
+            ],
+            "meaning": card["meaning"],
+            "pronunciationNotes": card["pronunciationNotes"],
+            "singAlongNotes": card["singAlongNotes"],
+            "needsReview": card["needsReview"],
+        }
+        for card in draft["agentOutput"]["lineCards"]
+    ]
 
 
 def test_post_persists_and_get_returns_same_contract(
@@ -213,6 +321,217 @@ def test_post_persists_generated_line_cards(
         "profile": "default",
         "mode": "structured_generation",
     }
+
+
+def test_patch_and_get_round_trip_for_one_edited_card(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    provider = StaticGeneratedProvider()
+    try:
+        draft = create_generated_draft(provider, session_factory)
+        line_cards = editable_line_cards(draft)
+        line_cards[0]["romaji"] = "edited romaji"
+        line_cards[0]["meaning"] = "Edited meaning."
+        line_cards[0]["needsReview"] = False
+
+        patch_response = asyncio.run(
+            patch(
+                f"/api/lyrics-learning/drafts/{draft['id']}",
+                json={"lineCards": line_cards},
+            )
+        )
+        get_response = asyncio.run(get(f"/api/lyrics-learning/drafts/{draft['id']}"))
+    finally:
+        app.dependency_overrides.clear()
+
+    assert patch_response.status_code == 200
+    assert get_response.status_code == 200
+    assert get_response.json() == patch_response.json()
+    updated = get_response.json()
+    assert updated["agentOutput"]["lineCards"][0]["romaji"] == "edited romaji"
+    assert updated["agentOutput"]["lineCards"][0]["meaning"] == "Edited meaning."
+    assert updated["agentOutput"]["lineCards"][0]["originalText"] == "学びたい一行"
+    assert updated["agentOutput"]["lineCards"][0]["confidence"] == 0.75
+    assert updated["status"] == "needs_review"
+
+
+def test_patch_updates_multiple_cards_and_recalculates_generated_status(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    provider = StaticGeneratedProvider()
+    try:
+        draft = create_generated_draft(provider, session_factory)
+        line_cards = editable_line_cards(draft)
+        line_cards[0]["pronunciationNotes"] = ["Edited first note."]
+        line_cards[0]["singAlongNotes"] = ["Edited first sing-along note."]
+        line_cards[0]["needsReview"] = False
+        line_cards[1]["approximateChinesePronunciation"] = "第二行提示"
+        line_cards[1]["meaning"] = "Edited second meaning."
+        line_cards[1]["needsReview"] = False
+
+        response = asyncio.run(
+            patch(
+                f"/api/lyrics-learning/drafts/{draft['id']}",
+                json={"lineCards": line_cards},
+            )
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    updated = response.json()
+    assert updated["status"] == "generated"
+    assert updated["agentOutput"]["lineCards"][0]["pronunciationNotes"] == [
+        "Edited first note."
+    ]
+    assert updated["agentOutput"]["lineCards"][0]["singAlongNotes"] == [
+        "Edited first sing-along note."
+    ]
+    assert updated["agentOutput"]["lineCards"][1][
+        "approximateChinesePronunciation"
+    ] == "第二行提示"
+    assert updated["agentOutput"]["lineCards"][1]["meaning"] == (
+        "Edited second meaning."
+    )
+
+
+def test_patch_recalculates_needs_review_status(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    provider = StaticGeneratedProvider()
+    try:
+        draft = create_generated_draft(provider, session_factory)
+        line_cards = editable_line_cards(draft)
+        line_cards[0]["needsReview"] = False
+        line_cards[1]["needsReview"] = True
+
+        response = asyncio.run(
+            patch(
+                f"/api/lyrics-learning/drafts/{draft['id']}",
+                json={"lineCards": line_cards},
+            )
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "needs_review"
+
+
+def test_patch_missing_draft_returns_404(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    app.dependency_overrides[get_lyrics_learning_draft_service] = override_service(
+        FakeLyricsLearningAgentProvider(),
+        session_factory,
+    )
+    try:
+        response = asyncio.run(
+            patch(
+                f"/api/lyrics-learning/drafts/{uuid4()}",
+                json={"lineCards": []},
+            )
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Lyrics learning draft not found."}
+
+
+@pytest.mark.parametrize(
+    ("mutate", "expected_detail"),
+    [
+        (
+            lambda cards: cards.pop(),
+            "missing stored line numbers 2",
+        ),
+        (
+            lambda cards: cards.append({**cards[0]}),
+            "Duplicate line numbers submitted: 1.",
+        ),
+        (
+            lambda cards: cards.append({**cards[0], "lineNumber": 999}),
+            "unknown line numbers 999",
+        ),
+    ],
+)
+def test_patch_rejects_invalid_line_number_collections_without_partial_updates(
+    mutate,
+    expected_detail: str,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    provider = StaticGeneratedProvider()
+    try:
+        draft = create_generated_draft(provider, session_factory)
+        line_cards = editable_line_cards(draft)
+        line_cards[0]["romaji"] = "should not persist"
+        mutate(line_cards)
+
+        response = asyncio.run(
+            patch(
+                f"/api/lyrics-learning/drafts/{draft['id']}",
+                json={"lineCards": line_cards},
+            )
+        )
+        get_response = asyncio.run(get(f"/api/lyrics-learning/drafts/{draft['id']}"))
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    assert expected_detail in response.json()["detail"]
+    assert get_response.json()["agentOutput"]["lineCards"][0]["romaji"] == (
+        "manabitai ichigyou"
+    )
+
+
+def test_patch_rejects_immutable_line_card_fields(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    provider = StaticGeneratedProvider()
+    try:
+        draft = create_generated_draft(provider, session_factory)
+        line_cards = editable_line_cards(draft)
+        line_cards[0]["originalText"] = "改ざん"
+        line_cards[0]["confidence"] = 0.1
+
+        response = asyncio.run(
+            patch(
+                f"/api/lyrics-learning/drafts/{draft['id']}",
+                json={"lineCards": line_cards},
+            )
+        )
+        get_response = asyncio.run(get(f"/api/lyrics-learning/drafts/{draft['id']}"))
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    stored_card = get_response.json()["agentOutput"]["lineCards"][0]
+    assert stored_card["originalText"] == "学びたい一行"
+    assert stored_card["confidence"] == 0.75
+
+
+def test_patch_does_not_call_provider(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    provider = StaticGeneratedProvider()
+    try:
+        draft = create_generated_draft(provider, session_factory)
+        assert provider.create_calls == 1
+        line_cards = editable_line_cards(draft)
+        line_cards[0]["needsReview"] = False
+
+        response = asyncio.run(
+            patch(
+                f"/api/lyrics-learning/drafts/{draft['id']}",
+                json={"lineCards": line_cards},
+            )
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert provider.create_calls == 1
 
 
 def test_get_missing_draft_returns_404(

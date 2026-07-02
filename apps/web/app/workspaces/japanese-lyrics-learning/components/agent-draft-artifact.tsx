@@ -10,7 +10,10 @@ type AgentDraftArtifactProps = {
   lineCards: LyricsLineCard[];
   onClearLocalDraft: () => void;
   onLineCardsChange: (lineCards: LyricsLineCard[]) => void;
+  onSaveReviewEdits: () => void;
   onSelectedLineIndexChange: (index: number) => void;
+  reviewSaveError: string | null;
+  reviewSaveState: "clean" | "unsaved" | "saving" | "saved" | "error";
   selectedLineIndex: number;
 };
 
@@ -20,9 +23,29 @@ export default function AgentDraftArtifact({
   lineCards,
   onClearLocalDraft,
   onLineCardsChange,
+  onSaveReviewEdits,
   onSelectedLineIndexChange,
+  reviewSaveError,
+  reviewSaveState,
   selectedLineIndex,
 }: AgentDraftArtifactProps) {
+  const canSaveReviewEdits =
+    draft.id !== "local-preview" &&
+    Boolean(draft.agentOutput) &&
+    reviewSaveState !== "clean" &&
+    reviewSaveState !== "saved" &&
+    reviewSaveState !== "saving";
+  const saveStateLabel =
+    reviewSaveState === "clean"
+      ? "No unsaved review edits"
+      : reviewSaveState === "unsaved"
+        ? "Unsaved review edits"
+        : reviewSaveState === "saving"
+          ? "Saving review edits"
+          : reviewSaveState === "saved"
+            ? "Review edits saved"
+            : "Save failed";
+
   return (
     <article className="agent-artifact" aria-labelledby="agent-artifact-title">
       <div className="agent-artifact-header">
@@ -82,17 +105,33 @@ export default function AgentDraftArtifact({
       ) : null}
 
       <div className="local-draft-controls">
-        <p>
-          Draft edits are saved locally in this browser until database
-          persistence is implemented.
-        </p>
-        <button
-          disabled={!hasLocalDraft}
-          onClick={onClearLocalDraft}
-          type="button"
-        >
-          Clear local draft
-        </button>
+        <div>
+          <p>{saveStateLabel}</p>
+          {reviewSaveError ? (
+            <p className="review-save-error" role="status">
+              {reviewSaveError}
+            </p>
+          ) : null}
+          {hasLocalDraft ? (
+            <p>Unsaved browser edits are available for recovery.</p>
+          ) : null}
+        </div>
+        <div className="local-draft-actions">
+          <button
+            disabled={!canSaveReviewEdits}
+            onClick={onSaveReviewEdits}
+            type="button"
+          >
+            {reviewSaveState === "saving" ? "Saving..." : "Save changes"}
+          </button>
+          <button
+            disabled={!hasLocalDraft}
+            onClick={onClearLocalDraft}
+            type="button"
+          >
+            Clear local draft
+          </button>
+        </div>
       </div>
 
       <details className="pending-output-section" open={!draft.agentOutput}>

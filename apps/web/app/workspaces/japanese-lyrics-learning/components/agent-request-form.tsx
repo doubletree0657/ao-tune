@@ -90,8 +90,8 @@ export default function AgentRequestForm({
             value={request.lyricsText}
           />
           <p>
-            Line cards are generated only from this user-provided text. It is
-            sent to the local API and is not stored in a database.
+            Line cards are generated only from this user-provided text and
+            stored with the draft artifact.
           </p>
         </div>
 

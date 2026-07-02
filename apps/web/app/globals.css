@@ -564,6 +564,21 @@ h2 {
   font-size: 0.78rem;
 }
 
+.local-draft-controls p + p {
+  margin-top: 0.25rem;
+}
+
+.review-save-error {
+  color: #d9b4bd !important;
+}
+
+.local-draft-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.6rem;
+  align-items: center;
+}
+
 .local-draft-controls button {
   flex: 0 0 auto;
   padding: 0.5rem 0.7rem;
@@ -994,6 +1009,11 @@ h2 {
   }
 
   .local-draft-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .local-draft-actions {
     align-items: stretch;
     flex-direction: column;
   }

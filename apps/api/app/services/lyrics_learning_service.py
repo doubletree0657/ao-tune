@@ -1,12 +1,16 @@
 from app.agents.lyrics_learning_prompt import PROMPT_CONTRACT_VERSION
 from app.agents.lyrics_learning_provider import LyricsLearningAgentProvider
 from app.repositories.lyrics_learning_repository import (
+    InvalidLineCardCollectionError,
     LyricsLearningArtifactRepository,
 )
 from app.schemas.lyrics_learning import (
     LyricsLearningDraftRequest,
     LyricsLearningDraftResponse,
+    LyricsLearningDraftUpdateRequest,
 )
+
+__all__ = ["InvalidLineCardCollectionError", "LyricsLearningDraftService"]
 
 
 class LyricsLearningDraftService:
@@ -33,3 +37,10 @@ class LyricsLearningDraftService:
         draft_id: str,
     ) -> LyricsLearningDraftResponse | None:
         return await self._repository.get(draft_id)
+
+    async def update_draft(
+        self,
+        draft_id: str,
+        request: LyricsLearningDraftUpdateRequest,
+    ) -> LyricsLearningDraftResponse | None:
+        return await self._repository.update_line_cards(draft_id, request)

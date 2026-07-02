@@ -114,3 +114,27 @@ Load a saved draft with:
 ```bash
 curl http://localhost:8000/api/lyrics-learning/drafts/<id>
 ```
+
+Persist review edits by sending the complete current `lineCards` collection.
+Only `lineNumber`, `romaji`, `approximateChinesePronunciation`, `meaning`,
+`pronunciationNotes`, `singAlongNotes`, and `needsReview` are accepted.
+Immutable fields such as original lyrics text, confidence, provider metadata,
+prompt contract version, IDs, and timestamps are not editable.
+
+```bash
+curl -X PATCH http://localhost:8000/api/lyrics-learning/drafts/<id> \
+  -H "Content-Type: application/json" \
+  -d '{
+    "lineCards": [
+      {
+        "lineNumber": 1,
+        "romaji": "sample",
+        "approximateChinesePronunciation": null,
+        "meaning": "sample meaning",
+        "pronunciationNotes": [],
+        "singAlongNotes": [],
+        "needsReview": false
+      }
+    ]
+  }'
+```

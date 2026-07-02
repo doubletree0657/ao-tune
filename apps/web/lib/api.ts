@@ -25,6 +25,21 @@ export type LyricsLineCard = {
   needsReview: boolean;
 };
 
+export type LyricsLineCardUpdate = Pick<
+  LyricsLineCard,
+  | "lineNumber"
+  | "romaji"
+  | "approximateChinesePronunciation"
+  | "meaning"
+  | "pronunciationNotes"
+  | "singAlongNotes"
+  | "needsReview"
+>;
+
+export type LyricsLearningDraftUpdateRequest = {
+  lineCards: LyricsLineCardUpdate[];
+};
+
 export type LyricsLearningAgentOutput = {
   lineCards: LyricsLineCard[];
   pronunciationNotes: string[];
@@ -120,6 +135,31 @@ export async function getLyricsLearningDraft(
 ): Promise<LyricsLearningDraft> {
   const response = await fetch(
     `${apiBaseUrl}/api/lyrics-learning/drafts/${draftId}`,
+  );
+
+  if (!response.ok) {
+    throw new LyricsLearningApiError(
+      await getApiErrorMessage(response),
+      response.status,
+    );
+  }
+
+  return (await response.json()) as LyricsLearningDraft;
+}
+
+export async function updateLyricsLearningDraft(
+  draftId: string,
+  request: LyricsLearningDraftUpdateRequest,
+): Promise<LyricsLearningDraft> {
+  const response = await fetch(
+    `${apiBaseUrl}/api/lyrics-learning/drafts/${draftId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    },
   );
 
   if (!response.ok) {

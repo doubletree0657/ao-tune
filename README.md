@@ -115,7 +115,7 @@ curl http://localhost:8000/health
 curl http://localhost:8000/api/workspaces/templates
 ```
 
-Create and load a persisted lyrics-learning draft:
+Create, update, and load a persisted lyrics-learning draft:
 
 ```bash
 curl -X POST http://localhost:8000/api/lyrics-learning/drafts \
@@ -123,6 +123,10 @@ curl -X POST http://localhost:8000/api/lyrics-learning/drafts \
   -d '{"songTitle":"Sample","artist":"Sample artist","learningGoal":"Practice pronunciation."}'
 
 curl http://localhost:8000/api/lyrics-learning/drafts/<id>
+
+curl -X PATCH http://localhost:8000/api/lyrics-learning/drafts/<id> \
+  -H "Content-Type: application/json" \
+  -d '{"lineCards":[{"lineNumber":1,"romaji":"sample","approximateChinesePronunciation":null,"meaning":"sample meaning","pronunciationNotes":[],"singAlongNotes":[],"needsReview":false}]}'
 ```
 
 ### Frontend

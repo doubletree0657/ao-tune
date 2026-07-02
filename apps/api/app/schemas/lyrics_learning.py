@@ -63,6 +63,33 @@ class LyricsLineCard(BaseModel):
     needs_review: bool = Field(default=False, alias="needsReview")
 
 
+class LyricsLineCardUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    line_number: int = Field(alias="lineNumber", ge=1)
+    romaji: str | None = None
+    approximate_chinese_pronunciation: str | None = Field(
+        default=None,
+        alias="approximateChinesePronunciation",
+    )
+    meaning: str | None = None
+    pronunciation_notes: list[str] = Field(
+        default_factory=list,
+        alias="pronunciationNotes",
+    )
+    sing_along_notes: list[str] = Field(
+        default_factory=list,
+        alias="singAlongNotes",
+    )
+    needs_review: bool = Field(default=False, alias="needsReview")
+
+
+class LyricsLearningDraftUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    line_cards: list[LyricsLineCardUpdate] = Field(alias="lineCards")
+
+
 class LyricsLearningAgentOutput(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 

@@ -5,11 +5,13 @@ import { useEffect, useState } from "react";
 import {
   createLyricsLearningDraft,
   LyricsLearningApiError,
+  updateLyricsLearningDraft,
 } from "@/lib/api";
 import type {
   GeneratedSection,
   LyricsLearningDraft,
   LyricsLearningDraftRequest,
+  LyricsLearningDraftUpdateRequest,
   LyricsLineCard,
 } from "@/lib/api";
 
@@ -62,6 +64,8 @@ const initialArtifact: LyricsLearningDraft = {
 
 const localDraftStorageKey = "aotune.japanese-lyrics-learning.draft.v1";
 
+type ReviewSaveState = "clean" | "unsaved" | "saving" | "saved" | "error";
+
 type LocalDraft = {
   version: 1;
   request: SongRequest;
@@ -74,11 +78,26 @@ function cloneLineCards(draft: LyricsLearningDraft): LyricsLineCard[] {
   return (
     draft.agentOutput?.lineCards.map((card) => ({
       ...card,
-      needsReview: true,
       pronunciationNotes: [...card.pronunciationNotes],
       singAlongNotes: [...card.singAlongNotes],
     })) ?? []
   );
+}
+
+function lineCardsUpdateRequest(
+  lineCards: LyricsLineCard[],
+): LyricsLearningDraftUpdateRequest {
+  return {
+    lineCards: lineCards.map((card) => ({
+      lineNumber: card.lineNumber,
+      romaji: card.romaji,
+      approximateChinesePronunciation: card.approximateChinesePronunciation,
+      meaning: card.meaning,
+      pronunciationNotes: card.pronunciationNotes,
+      singAlongNotes: card.singAlongNotes,
+      needsReview: card.needsReview,
+    })),
+  };
 }
 
 function readLocalDraft(): LocalDraft | null {
@@ -120,6 +139,9 @@ export default function SongAgentRequest() {
   const [hasLocalDraft, setHasLocalDraft] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reviewSaveState, setReviewSaveState] =
+    useState<ReviewSaveState>("clean");
+  const [reviewSaveError, setReviewSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     const localDraft = readLocalDraft();
@@ -134,6 +156,7 @@ export default function SongAgentRequest() {
         ),
       );
       setHasLocalDraft(true);
+      setReviewSaveState(localDraft.draft.agentOutput ? "unsaved" : "clean");
     }
     setHasHydrated(true);
   }, []);
@@ -143,7 +166,18 @@ export default function SongAgentRequest() {
       return;
     }
 
-    if (draft.id === initialArtifact.id && !requestHasLocalChanges(request)) {
+    const hasUnsavedRequest =
+      draft.id === initialArtifact.id && requestHasLocalChanges(request);
+    const hasUnsavedReviewEdits =
+      reviewSaveState === "unsaved" || reviewSaveState === "error";
+
+    if (!hasUnsavedRequest && !hasUnsavedReviewEdits) {
+      try {
+        window.localStorage.removeItem(localDraftStorageKey);
+      } catch {
+        // Local recovery is optional.
+      }
+      setHasLocalDraft(false);
       return;
     }
 
@@ -163,7 +197,14 @@ export default function SongAgentRequest() {
     } catch {
       setHasLocalDraft(false);
     }
-  }, [draft, editableLineCards, hasHydrated, request, selectedLineIndex]);
+  }, [
+    draft,
+    editableLineCards,
+    hasHydrated,
+    request,
+    reviewSaveState,
+    selectedLineIndex,
+  ]);
 
   function updateField(field: keyof SongRequest, value: string) {
     setRequest((current) => ({ ...current, [field]: value }));
@@ -182,6 +223,8 @@ export default function SongAgentRequest() {
       setDraft(response);
       setEditableLineCards(cloneLineCards(response));
       setSelectedLineIndex(0);
+      setReviewSaveState("clean");
+      setReviewSaveError(null);
     } catch (requestError) {
       if (requestError instanceof LyricsLearningApiError) {
         setError(requestError.message);
@@ -192,6 +235,47 @@ export default function SongAgentRequest() {
       }
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  function updateLineCards(lineCards: LyricsLineCard[]) {
+    setEditableLineCards(lineCards);
+    setReviewSaveState("unsaved");
+    setReviewSaveError(null);
+  }
+
+  async function saveReviewEdits() {
+    if (draft.id === initialArtifact.id || !draft.agentOutput) {
+      return;
+    }
+
+    setReviewSaveState("saving");
+    setReviewSaveError(null);
+
+    try {
+      const response = await updateLyricsLearningDraft(
+        draft.id,
+        lineCardsUpdateRequest(editableLineCards),
+      );
+      const responseLineCards = cloneLineCards(response);
+      setDraft(response);
+      setEditableLineCards(responseLineCards);
+      setSelectedLineIndex((currentIndex) =>
+        Math.min(
+          Math.max(currentIndex, 0),
+          Math.max(responseLineCards.length - 1, 0),
+        ),
+      );
+      setReviewSaveState("saved");
+    } catch (requestError) {
+      setReviewSaveState("error");
+      if (requestError instanceof LyricsLearningApiError) {
+        setReviewSaveError(requestError.message);
+      } else {
+        setReviewSaveError(
+          "AoTune could not save the review edits. Check the local API and try again.",
+        );
+      }
     }
   }
 
@@ -207,6 +291,8 @@ export default function SongAgentRequest() {
     setSelectedLineIndex(0);
     setHasLocalDraft(false);
     setError(null);
+    setReviewSaveState("clean");
+    setReviewSaveError(null);
   }
 
   return (
@@ -225,8 +311,11 @@ export default function SongAgentRequest() {
         hasLocalDraft={hasLocalDraft}
         lineCards={editableLineCards}
         onClearLocalDraft={clearLocalDraft}
-        onLineCardsChange={setEditableLineCards}
+        onLineCardsChange={updateLineCards}
+        onSaveReviewEdits={saveReviewEdits}
         onSelectedLineIndexChange={setSelectedLineIndex}
+        reviewSaveError={reviewSaveError}
+        reviewSaveState={reviewSaveState}
         selectedLineIndex={selectedLineIndex}
       />
     </div>

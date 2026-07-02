@@ -12,10 +12,15 @@ from app.models.lyrics_learning import (
 from app.schemas.lyrics_learning import (
     LyricsLearningAgentOutput,
     LyricsLearningDraftResponse,
+    LyricsLearningDraftUpdateRequest,
     LyricsLineCard,
     ProviderMetadata,
     build_generated_sections,
 )
+
+
+class InvalidLineCardCollectionError(ValueError):
+    pass
 
 
 class LyricsLearningArtifactRepository(Protocol):
@@ -26,6 +31,12 @@ class LyricsLearningArtifactRepository(Protocol):
     ) -> LyricsLearningDraftResponse: ...
 
     async def get(self, artifact_id: str) -> LyricsLearningDraftResponse | None: ...
+
+    async def update_line_cards(
+        self,
+        artifact_id: str,
+        request: LyricsLearningDraftUpdateRequest,
+    ) -> LyricsLearningDraftResponse | None: ...
 
 
 class SQLAlchemyLyricsLearningArtifactRepository:
@@ -97,6 +108,89 @@ class SQLAlchemyLyricsLearningArtifactRepository:
             return None
         return artifact_to_response(artifact)
 
+    async def update_line_cards(
+        self,
+        artifact_id: str,
+        request: LyricsLearningDraftUpdateRequest,
+    ) -> LyricsLearningDraftResponse | None:
+        try:
+            parsed_id = UUID(artifact_id)
+        except ValueError:
+            return None
+
+        submitted_line_numbers = [card.line_number for card in request.line_cards]
+        duplicate_line_numbers = sorted(
+            {
+                line_number
+                for line_number in submitted_line_numbers
+                if submitted_line_numbers.count(line_number) > 1
+            }
+        )
+        if duplicate_line_numbers:
+            raise InvalidLineCardCollectionError(
+                "Duplicate line numbers submitted: "
+                f"{_format_line_numbers(duplicate_line_numbers)}."
+            )
+
+        async with self._session.begin():
+            result = await self._session.execute(
+                select(LyricsLearningArtifact)
+                .options(selectinload(LyricsLearningArtifact.line_cards))
+                .where(LyricsLearningArtifact.id == parsed_id)
+                .with_for_update()
+            )
+            artifact = result.scalar_one_or_none()
+            if artifact is None:
+                return None
+
+            stored_cards_by_line_number = {
+                card.line_number: card for card in artifact.line_cards
+            }
+            stored_line_numbers = set(stored_cards_by_line_number)
+            submitted_line_number_set = set(submitted_line_numbers)
+
+            missing_line_numbers = sorted(
+                stored_line_numbers - submitted_line_number_set
+            )
+            unknown_line_numbers = sorted(
+                submitted_line_number_set - stored_line_numbers
+            )
+            if missing_line_numbers or unknown_line_numbers:
+                details: list[str] = []
+                if missing_line_numbers:
+                    details.append(
+                        "missing stored line numbers "
+                        f"{_format_line_numbers(missing_line_numbers)}"
+                    )
+                if unknown_line_numbers:
+                    details.append(
+                        "unknown line numbers "
+                        f"{_format_line_numbers(unknown_line_numbers)}"
+                    )
+                raise InvalidLineCardCollectionError(
+                    "Submitted line cards must exactly match the stored line "
+                    f"numbers; {', '.join(details)}."
+                )
+
+            for submitted_card in request.line_cards:
+                stored_card = stored_cards_by_line_number[submitted_card.line_number]
+                stored_card.romaji = submitted_card.romaji
+                stored_card.approximate_chinese_pronunciation = (
+                    submitted_card.approximate_chinese_pronunciation
+                )
+                stored_card.meaning = submitted_card.meaning
+                stored_card.pronunciation_notes = submitted_card.pronunciation_notes
+                stored_card.sing_along_notes = submitted_card.sing_along_notes
+                stored_card.needs_review = submitted_card.needs_review
+
+            artifact.status = (
+                "needs_review"
+                if any(card.needs_review for card in request.line_cards)
+                else "generated"
+            )
+            await self._session.flush()
+            return artifact_to_response(artifact)
+
 
 def artifact_to_response(
     artifact: LyricsLearningArtifact,
@@ -152,3 +246,7 @@ def artifact_to_response(
         agent_output=output,
         generation_error=artifact.generation_error,
     )
+
+
+def _format_line_numbers(line_numbers: list[int]) -> str:
+    return ", ".join(str(line_number) for line_number in line_numbers)

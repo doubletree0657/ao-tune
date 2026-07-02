@@ -16,8 +16,12 @@ from app.repositories.lyrics_learning_repository import (
 from app.schemas.lyrics_learning import (
     LyricsLearningDraftRequest,
     LyricsLearningDraftResponse,
+    LyricsLearningDraftUpdateRequest,
 )
-from app.services.lyrics_learning_service import LyricsLearningDraftService
+from app.services.lyrics_learning_service import (
+    InvalidLineCardCollectionError,
+    LyricsLearningDraftService,
+)
 
 router = APIRouter(prefix="/api/lyrics-learning", tags=["lyrics-learning"])
 
@@ -79,6 +83,34 @@ async def get_lyrics_learning_draft(
     ],
 ) -> LyricsLearningDraftResponse:
     draft = await service.get_draft(draft_id)
+    if draft is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lyrics learning draft not found.",
+        )
+    return draft
+
+
+@router.patch(
+    "/drafts/{draft_id}",
+    response_model=LyricsLearningDraftResponse,
+)
+async def update_lyrics_learning_draft(
+    draft_id: str,
+    request: LyricsLearningDraftUpdateRequest,
+    service: Annotated[
+        LyricsLearningDraftService,
+        Depends(get_lyrics_learning_draft_service),
+    ],
+) -> LyricsLearningDraftResponse:
+    try:
+        draft = await service.update_draft(draft_id, request)
+    except InvalidLineCardCollectionError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
+
     if draft is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
