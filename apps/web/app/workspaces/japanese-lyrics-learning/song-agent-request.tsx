@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { KeyboardEvent } from "react";
 
 import {
   createLyricsLearningDraft,
@@ -22,11 +23,12 @@ import AgentDraftArtifact from "./components/agent-draft-artifact";
 import AgentRequestForm from "./components/agent-request-form";
 import ArtifactLibrary from "./components/artifact-library";
 import type { SongRequest } from "./components/types";
+import styles from "./workspace.module.css";
 
 const defaultRequest: SongRequest = {
-  songTitle: "だから僕は音楽を辞めた",
-  artist: "Yorushika",
-  learningGoal: "I want to learn pronunciation and sing along.",
+  songTitle: "",
+  artist: "",
+  learningGoal: "Practice pronunciation, meaning, and sing-along timing.",
   lyricsText: "",
   studyNotes: "",
 };
@@ -70,6 +72,7 @@ const localDraftStorageKey = "aotune.japanese-lyrics-learning.draft.v1";
 const newArtifactWorkspaceKey = "new-artifact";
 
 type ReviewSaveState = "clean" | "unsaved" | "saving" | "saved" | "error";
+type CreateStatus = "idle" | "generating" | "success";
 
 type LocalDraft = {
   version: 2;
@@ -169,6 +172,12 @@ function reviewHasUnsavedChanges(reviewSaveState: ReviewSaveState) {
   return reviewSaveState === "unsaved" || reviewSaveState === "error";
 }
 
+function wait(milliseconds: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, milliseconds);
+  });
+}
+
 export default function SongAgentRequest() {
   const [request, setRequest] = useState<SongRequest>(defaultRequest);
   const [createRequest, setCreateRequest] =
@@ -186,11 +195,18 @@ export default function SongAgentRequest() {
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [hasLocalDraft, setHasLocalDraft] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [createStatus, setCreateStatus] = useState<CreateStatus>("idle");
+  const [createError, setCreateError] = useState<string | null>(null);
   const [reviewSaveState, setReviewSaveState] =
     useState<ReviewSaveState>("clean");
   const [reviewSaveError, setReviewSaveError] = useState<string | null>(null);
+  const [autoOpenAttempted, setAutoOpenAttempted] = useState(false);
+
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  const isCreating = createStatus === "generating";
+  const isCreateSuccess = createStatus === "success";
 
   useEffect(() => {
     const localDraft = readLocalDraft();
@@ -219,6 +235,29 @@ export default function SongAgentRequest() {
   useEffect(() => {
     void refreshArtifactSummaries();
   }, []);
+
+  useEffect(() => {
+    if (
+      !hasHydrated ||
+      hasLocalDraft ||
+      selectedDraftId ||
+      autoOpenAttempted ||
+      isLibraryLoading ||
+      artifactSummaries.length === 0
+    ) {
+      return;
+    }
+
+    setAutoOpenAttempted(true);
+    void openArtifact(artifactSummaries[0].id, { skipConfirmation: true });
+  }, [
+    artifactSummaries,
+    autoOpenAttempted,
+    hasHydrated,
+    hasLocalDraft,
+    isLibraryLoading,
+    selectedDraftId,
+  ]);
 
   useEffect(() => {
     if (!hasHydrated) {
@@ -274,6 +313,20 @@ export default function SongAgentRequest() {
     selectedLineIndex,
   ]);
 
+  useEffect(() => {
+    if (!isCreatePanelOpen) {
+      return;
+    }
+
+    document.body.dataset.dialogOpen = "true";
+    const firstField = document.getElementById("request-song-title");
+    firstField?.focus();
+
+    return () => {
+      delete document.body.dataset.dialogOpen;
+    };
+  }, [isCreatePanelOpen]);
+
   async function refreshArtifactSummaries() {
     setIsLibraryLoading(true);
     setLibraryError(null);
@@ -316,16 +369,23 @@ export default function SongAgentRequest() {
     setSelectedDraftId(response.id);
     setReviewSaveState("clean");
     setReviewSaveError(null);
-    setError(null);
   }
 
   function updateCreateField(field: keyof SongRequest, value: string) {
     setCreateRequest((current) => ({ ...current, [field]: value }));
+    setCreateError(null);
+    if (createStatus === "success") {
+      setCreateStatus("idle");
+    }
   }
 
   async function createDraft() {
-    setIsLoading(true);
-    setError(null);
+    if (isCreating || isCreateSuccess) {
+      return;
+    }
+
+    setCreateStatus("generating");
+    setCreateError(null);
 
     try {
       const response = await createLyricsLearningDraft({
@@ -334,27 +394,34 @@ export default function SongAgentRequest() {
         studyNotes: createRequest.studyNotes.trim() || undefined,
       } satisfies LyricsLearningDraftRequest);
       applyServerDraft(response);
+      await refreshArtifactSummaries();
+      setCreateStatus("success");
+      await wait(650);
       setCreateRequest(defaultRequest);
       setIsCreatePanelOpen(false);
-      await refreshArtifactSummaries();
+      setCreateStatus("idle");
+      previousFocusRef.current?.focus();
     } catch (requestError) {
+      setCreateStatus("idle");
       if (requestError instanceof LyricsLearningApiError) {
-        setError(requestError.message);
+        setCreateError(requestError.message);
       } else {
-        setError(
+        setCreateError(
           "AoTune could not reach the local API. Check that it is running at the configured API address, then try again.",
         );
       }
-    } finally {
-      setIsLoading(false);
     }
   }
 
-  async function openArtifact(draftId: string) {
-    if (draftId === selectedDraftId) {
+  async function openArtifact(
+    draftId: string,
+    options: { skipConfirmation?: boolean } = {},
+  ) {
+    if (draftId === selectedDraftId || isArtifactLoading) {
       return;
     }
     if (
+      !options.skipConfirmation &&
       !confirmDiscardUnsavedChanges(
         "Discard unsaved edits and switch to another artifact?",
       )
@@ -387,7 +454,11 @@ export default function SongAgentRequest() {
   }
 
   async function saveReviewEdits() {
-    if (draft.id === initialArtifact.id || !draft.agentOutput) {
+    if (
+      draft.id === initialArtifact.id ||
+      !draft.agentOutput ||
+      reviewSaveState === "saving"
+    ) {
       return;
     }
 
@@ -432,13 +503,15 @@ export default function SongAgentRequest() {
     ) {
       return;
     }
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
     setCreateRequest(defaultRequest);
-    setError(null);
+    setCreateError(null);
+    setCreateStatus("idle");
     setIsCreatePanelOpen(true);
   }
 
   function closeCreatePanel() {
-    if (isLoading) {
+    if (isCreating) {
       return;
     }
     if (
@@ -448,8 +521,10 @@ export default function SongAgentRequest() {
       return;
     }
     setCreateRequest(defaultRequest);
-    setError(null);
+    setCreateError(null);
+    setCreateStatus("idle");
     setIsCreatePanelOpen(false);
+    window.setTimeout(() => previousFocusRef.current?.focus(), 0);
   }
 
   function clearLocalDraft() {
@@ -464,9 +539,39 @@ export default function SongAgentRequest() {
     setSelectedLineIndex(0);
     setSelectedDraftId(null);
     setHasLocalDraft(false);
-    setError(null);
     setReviewSaveState("clean");
     setReviewSaveError(null);
+    setAutoOpenAttempted(false);
+  }
+
+  function handleDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeCreatePanel();
+      return;
+    }
+
+    if (event.key !== "Tab" || !dialogRef.current) {
+      return;
+    }
+
+    const focusableElements = dialogRef.current.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    if (focusableElements.length === 0) {
+      return;
+    }
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+
+    if (event.shiftKey && document.activeElement === firstElement) {
+      event.preventDefault();
+      lastElement.focus();
+    } else if (!event.shiftKey && document.activeElement === lastElement) {
+      event.preventDefault();
+      firstElement.focus();
+    }
   }
 
   const hasSelectedArtifact =
@@ -474,73 +579,103 @@ export default function SongAgentRequest() {
 
   return (
     <>
-      <div className="lyrics-workspace-shell">
+      <div className={styles.workspaceShell}>
         <ArtifactLibrary
           error={libraryError}
           isLoading={isLibraryLoading || isArtifactLoading}
           onNewArtifact={openCreatePanel}
           onRefresh={refreshArtifactSummaries}
-          onSelectArtifact={openArtifact}
+          onSelectArtifact={(draftId) => void openArtifact(draftId)}
           selectedDraftId={selectedDraftId}
           summaries={artifactSummaries}
         />
-        <section className="workspace-workbench" aria-label="Selected artifact">
-          {hasSelectedArtifact ? (
-            <AgentDraftArtifact
-              draft={draft}
-              hasLocalDraft={hasLocalDraft}
-              lineCards={editableLineCards}
-              onClearLocalDraft={clearLocalDraft}
-              onLineCardsChange={updateLineCards}
-              onSaveReviewEdits={saveReviewEdits}
-              onSelectedLineIndexChange={setSelectedLineIndex}
-              reviewSaveError={reviewSaveError}
-              reviewSaveState={reviewSaveState}
-              selectedLineIndex={selectedLineIndex}
-            />
-          ) : (
-            <div className="workbench-empty">
-              <p className="artifact-kicker">Workbench</p>
-              <h2>Select a saved artifact</h2>
+
+        {hasSelectedArtifact ? (
+          <AgentDraftArtifact
+            draft={draft}
+            hasLocalDraft={hasLocalDraft}
+            lineCards={editableLineCards}
+            onClearLocalDraft={clearLocalDraft}
+            onLineCardsChange={updateLineCards}
+            onSaveReviewEdits={() => void saveReviewEdits()}
+            onSelectedLineIndexChange={setSelectedLineIndex}
+            reviewSaveError={reviewSaveError}
+            reviewSaveState={reviewSaveState}
+            selectedLineIndex={selectedLineIndex}
+          />
+        ) : (
+          <section className={styles.emptyWorkbench} aria-labelledby="empty-title">
+            <div className={styles.emptyWorkbenchInner}>
+              <p className={styles.eyebrow}>Workbench</p>
+              <h2 id="empty-title">Start with a lyrics learning artifact.</h2>
               <p>
-                Choose a draft from the library to review line cards, update
-                pronunciation notes, and save changes. Use New artifact when you
-                want to generate a fresh draft from user-provided lyrics.
+                Saved artifacts open here automatically when available. Create a
+                draft to generate line cards from lyrics you provide.
               </p>
+              <button
+                className={styles.primaryButton}
+                onClick={openCreatePanel}
+                type="button"
+              >
+                New artifact
+              </button>
             </div>
-          )}
-        </section>
+          </section>
+        )}
       </div>
 
       {isCreatePanelOpen ? (
         <div
-          aria-labelledby="create-artifact-title"
-          aria-modal="true"
-          className="creation-overlay"
-          role="dialog"
+          className={styles.dialogBackdrop}
+          onKeyDown={handleDialogKeyDown}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeCreatePanel();
+            }
+          }}
+          role="presentation"
         >
-          <div className="creation-panel">
-            <div className="creation-panel-header">
+          <div
+            aria-describedby="create-artifact-description"
+            aria-labelledby="create-artifact-title"
+            aria-modal="true"
+            className={styles.dialog}
+            ref={dialogRef}
+            role="dialog"
+          >
+            <div className={styles.dialogHeader}>
               <div>
-                <p className="artifact-kicker">New artifact</p>
+                <p className={styles.eyebrow}>New artifact</p>
                 <h2 id="create-artifact-title">Create a lyrics learning draft</h2>
+                <p
+                  className={styles.panelMeta}
+                  id="create-artifact-description"
+                >
+                  Add song details and the lyrics text you want to study.
+                </p>
               </div>
               <button
-                aria-label="Close new artifact panel"
-                disabled={isLoading}
+                aria-label="Close new artifact dialog"
+                className={styles.iconButton}
+                disabled={isCreating}
                 onClick={closeCreatePanel}
                 type="button"
               >
-                Close
+                ×
               </button>
             </div>
-            <AgentRequestForm
-              error={error}
-              isLoading={isLoading}
-              onFieldChange={updateCreateField}
-              onSubmit={createDraft}
-              request={createRequest}
-            />
+
+            <div className={styles.dialogBody}>
+              <AgentRequestForm
+                error={createError}
+                isLoading={isCreating}
+                isSuccess={isCreateSuccess}
+                onCancel={closeCreatePanel}
+                onFieldChange={updateCreateField}
+                onSubmit={createDraft}
+                request={createRequest}
+              />
+            </div>
           </div>
         </div>
       ) : null}

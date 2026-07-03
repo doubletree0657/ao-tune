@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import SongAgentRequest from "./song-agent-request";
+import styles from "./workspace.module.css";
 
 export const metadata: Metadata = {
   title: "Japanese Lyrics Learning | AoTune",
@@ -11,28 +12,24 @@ export const metadata: Metadata = {
 
 export default function JapaneseLyricsLearningPage() {
   return (
-    <main className="workspace-page">
-      <nav className="breadcrumb" aria-label="Breadcrumb">
-        <Link href="/">AoTune</Link>
-        <span aria-hidden="true">/</span>
-        <span aria-current="page">Japanese Lyrics Learning</span>
-      </nav>
-
-      <header className="workspace-compact-header">
+    <main className={styles.page}>
+      <header className={styles.header}>
         <div>
-          <p className="eyebrow">Music learning workspace</p>
-          <h1 className="workspace-title">Japanese Lyrics Learning</h1>
-          <p className="workspace-intro">
-            Open a saved draft, review line cards, and save pronunciation or
-            meaning edits back to your local artifact library.
+          <nav className={styles.breadcrumb} aria-label="Breadcrumb">
+            <Link href="/">AoTune</Link>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">Japanese Lyrics Learning</span>
+          </nav>
+          <p className={styles.eyebrow}>Music learning workspace</p>
+          <h1 className={styles.title}>Japanese Lyrics Learning</h1>
+          <p className={styles.intro}>
+            Open a saved artifact, move through lyric lines, refine practice
+            notes, and save review progress without leaving the work surface.
           </p>
         </div>
-        <p className="phase workspace-phase">Phase 1 target</p>
       </header>
 
-      <section className="workspace-app-section" aria-label="Lyrics learning workspace">
-        <SongAgentRequest />
-      </section>
+      <SongAgentRequest />
     </main>
   );
 }

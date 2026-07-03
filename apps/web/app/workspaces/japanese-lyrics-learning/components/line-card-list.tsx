@@ -1,5 +1,7 @@
 import type { LyricsLineCard } from "@/lib/api";
 
+import styles from "../workspace.module.css";
+
 type LineCardListProps = {
   lineCards: LyricsLineCard[];
   onSelect: (index: number) => void;
@@ -7,7 +9,7 @@ type LineCardListProps = {
 };
 
 function confidenceLabel(confidence: number | null) {
-  return confidence === null ? null : `${Math.round(confidence * 100)}%`;
+  return confidence === null ? "No confidence" : `${Math.round(confidence * 100)}%`;
 }
 
 export default function LineCardList({
@@ -16,12 +18,8 @@ export default function LineCardList({
   selectedLineIndex,
 }: LineCardListProps) {
   return (
-    <nav aria-label="Generated lyric lines" className="line-card-master">
-      <div className="line-card-master-heading">
-        <h5>Lyrics lines</h5>
-        <span>{lineCards.length} lines</span>
-      </div>
-      <ol>
+    <nav aria-label="Generated lyric lines" className={styles.lineScroll}>
+      <ol className={styles.lineList}>
         {lineCards.map((card, index) => {
           const confidence = confidenceLabel(card.confidence);
           const isSelected = index === selectedLineIndex;
@@ -30,26 +28,27 @@ export default function LineCardList({
             <li key={`${card.lineNumber}-${card.originalText}`}>
               <button
                 aria-current={isSelected ? "true" : undefined}
-                className={isSelected ? "is-selected" : undefined}
+                aria-label={`Select line ${card.lineNumber}: ${card.originalText}`}
+                className={styles.lineButton}
                 onClick={() => onSelect(index)}
                 type="button"
               >
-                <span className="line-card-number">{card.lineNumber}</span>
-                <span className="line-card-preview" lang="ja">
-                  {card.originalText}
+                <span className={styles.lineNumber}>{card.lineNumber}</span>
+                <span className={styles.linePreview}>
+                  <span className={styles.lineJapanese} lang="ja">
+                    {card.originalText}
+                  </span>
+                  <span className={styles.lineMeta}>
+                    <span
+                      className={
+                        card.needsReview ? styles.reviewPill : styles.donePill
+                      }
+                    >
+                      {card.needsReview ? "Needs review" : "Reviewed"}
+                    </span>
+                    <span className={styles.neutralPill}>{confidence}</span>
+                  </span>
                 </span>
-                <span
-                  className={
-                    card.needsReview ? "status-review" : "status-reviewed"
-                  }
-                >
-                  {card.needsReview ? "Needs review" : "Reviewed"}
-                </span>
-                {confidence ? (
-                  <small aria-label={`Confidence ${confidence}`}>
-                    {confidence}
-                  </small>
-                ) : null}
               </button>
             </li>
           );

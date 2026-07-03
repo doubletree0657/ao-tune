@@ -1,8 +1,8 @@
 import type { LyricsLearningDraft, LyricsLineCard } from "@/lib/api";
 
-import GeneratedLearningArtifact from "./generated-learning-artifact";
-import ProviderNotice from "./provider-notice";
-import TextPreview from "./text-preview";
+import LineCardList from "./line-card-list";
+import SelectedLineCardEditor from "./selected-line-card-editor";
+import styles from "../workspace.module.css";
 
 type AgentDraftArtifactProps = {
   draft: LyricsLearningDraft;
@@ -17,6 +17,24 @@ type AgentDraftArtifactProps = {
   selectedLineIndex: number;
 };
 
+function statusLabel(status: LyricsLearningDraft["status"]) {
+  if (status === "generated") {
+    return "Generated";
+  }
+  if (status === "needs_review") {
+    return "Needs review";
+  }
+  return "Generating";
+}
+
+function compactText(text: string | null, emptyText: string) {
+  if (!text?.trim()) {
+    return emptyText;
+  }
+  const preview = text.trim().split(/\r?\n/).slice(0, 6).join("\n");
+  return preview.length > 520 ? `${preview.slice(0, 520)}...` : preview;
+}
+
 export default function AgentDraftArtifact({
   draft,
   hasLocalDraft,
@@ -29,139 +47,159 @@ export default function AgentDraftArtifact({
   reviewSaveState,
   selectedLineIndex,
 }: AgentDraftArtifactProps) {
+  const reviewedCount = lineCards.filter((card) => !card.needsReview).length;
+  const needsReviewCount = lineCards.length - reviewedCount;
   const canSaveReviewEdits =
     draft.id !== "local-preview" &&
     Boolean(draft.agentOutput) &&
     reviewSaveState !== "clean" &&
     reviewSaveState !== "saved" &&
     reviewSaveState !== "saving";
-  const saveStateLabel =
-    reviewSaveState === "clean"
-      ? "No unsaved review edits"
-      : reviewSaveState === "unsaved"
-        ? "Unsaved review edits"
-        : reviewSaveState === "saving"
-          ? "Saving review edits"
-          : reviewSaveState === "saved"
-            ? "Review edits saved"
-            : "Save failed";
+  const selectedIndex = lineCards[selectedLineIndex] ? selectedLineIndex : 0;
 
   return (
-    <article className="agent-artifact" aria-labelledby="agent-artifact-title">
-      <div className="agent-artifact-header">
-        <div>
-          <p className="artifact-kicker">Agent Draft Artifact</p>
-          <h3 id="agent-artifact-title">
-            {draft.songTitle.trim() || "Untitled song request"}
-          </h3>
-          <p className="artifact-artist">
-            {draft.artist.trim() || "Artist not provided"}
+    <>
+      <section className={styles.lineNavigator} aria-labelledby="artifact-title">
+        <div className={styles.artifactHeader}>
+          <div className={styles.artifactTitleRow}>
+            <div>
+              <p className={styles.eyebrow}>Current artifact</p>
+              <h2 className={styles.artifactTitle} id="artifact-title">
+                {draft.songTitle.trim() || "Untitled song request"}
+              </h2>
+              <p className={styles.artist}>
+                {draft.artist.trim() || "Artist not provided"}
+              </p>
+            </div>
+            <span
+              className={
+                needsReviewCount > 0 ? styles.reviewPill : styles.donePill
+              }
+            >
+              {statusLabel(draft.status)}
+            </span>
+          </div>
+
+          <dl className={styles.reviewStats} aria-label="Review progress">
+            <div>
+              <dt>Lines</dt>
+              <dd>{lineCards.length}</dd>
+            </div>
+            <div>
+              <dt>Reviewed</dt>
+              <dd>{reviewedCount}</dd>
+            </div>
+            <div>
+              <dt>Needs review</dt>
+              <dd>{needsReviewCount}</dd>
+            </div>
+          </dl>
+        </div>
+
+        {draft.generationError ? (
+          <p className={styles.error} role="status">
+            {draft.generationError}
           </p>
-        </div>
-        <span>
-          {draft.id === "local-preview"
-            ? "Local preview"
-            : draft.status === "generated"
-              ? "Draft generated"
-              : draft.status === "needs_review"
-                ? "Needs review"
-                : "Awaiting agent"}
-        </span>
-      </div>
+        ) : null}
 
-      <div className="agent-request-summary">
-        <div>
-          <h4>Learning goal</h4>
-          <p>{draft.learningGoal}</p>
-        </div>
-        <TextPreview
-          emptyText="No lyrics text added. Line cards require user-provided lyrics text."
-          label="User-provided lyrics text"
-          text={draft.lyricsText}
+        <details className={styles.details}>
+          <summary>Artifact details and generation context</summary>
+          <div className={styles.detailsContent}>
+            <div className={styles.detailsGrid}>
+              <div className={`${styles.detailBlock} ${styles.detailBlockWide}`}>
+                <h4>Learning goal</h4>
+                <p>{draft.learningGoal}</p>
+              </div>
+              <div className={`${styles.detailBlock} ${styles.detailBlockWide}`}>
+                <h4>User-provided lyrics preview</h4>
+                <p lang="ja">
+                  {compactText(
+                    draft.lyricsText,
+                    "No lyrics text was stored with this artifact.",
+                  )}
+                </p>
+              </div>
+              <div className={`${styles.detailBlock} ${styles.detailBlockWide}`}>
+                <h4>Study notes</h4>
+                <p>
+                  {compactText(
+                    draft.studyNotes,
+                    "No study notes were stored with this artifact.",
+                  )}
+                </p>
+              </div>
+              <div className={styles.detailBlock}>
+                <h4>Provider</h4>
+                <p>
+                  {draft.providerMetadata.provider}
+                  {draft.providerMetadata.model
+                    ? ` / ${draft.providerMetadata.model}`
+                    : ""}
+                </p>
+              </div>
+              <div className={styles.detailBlock}>
+                <h4>Generation status</h4>
+                <p>{statusLabel(draft.status)}</p>
+              </div>
+            </div>
+
+            <div className={styles.detailBlock}>
+              <h4>Generated sections</h4>
+              <p>
+                {draft.generatedSections
+                  .map((section) => `${section.label}: ${section.status}`)
+                  .join("\n")}
+              </p>
+            </div>
+          </div>
+        </details>
+
+        {lineCards.length > 0 ? (
+          <LineCardList
+            lineCards={lineCards}
+            onSelect={onSelectedLineIndexChange}
+            selectedLineIndex={selectedLineIndex}
+          />
+        ) : (
+          <p className={styles.message}>
+            No line cards were generated for this artifact.
+          </p>
+        )}
+      </section>
+
+      {draft.agentOutput && lineCards.length > 0 ? (
+        <SelectedLineCardEditor
+          canSave={canSaveReviewEdits}
+          card={lineCards[selectedIndex]}
+          cardIndex={selectedIndex}
+          hasLocalDraft={hasLocalDraft}
+          onChange={(update) =>
+            onLineCardsChange(
+              lineCards.map((card, index) =>
+                index === selectedIndex ? { ...card, ...update } : card,
+              ),
+            )
+          }
+          onClearLocalDraft={onClearLocalDraft}
+          onMove={onSelectedLineIndexChange}
+          onSaveReviewEdits={onSaveReviewEdits}
+          reviewSaveError={reviewSaveError}
+          reviewSaveState={reviewSaveState}
+          totalCards={lineCards.length}
         />
-        <TextPreview
-          emptyText="No study notes added."
-          label="Study notes / listening goals"
-          text={draft.studyNotes}
-        />
-      </div>
-
-      <ProviderNotice draft={draft} />
-
-      {draft.generationError ? (
-        <p className="generation-review-note" role="status">
-          {draft.generationError}
-        </p>
-      ) : null}
-
-      {draft.agentOutput ? (
-        <GeneratedLearningArtifact
-          lineCards={lineCards}
-          onLineCardsChange={onLineCardsChange}
-          onSelectedLineIndexChange={onSelectedLineIndexChange}
-          output={draft.agentOutput}
-          selectedLineIndex={selectedLineIndex}
-        />
-      ) : null}
-
-      <div className="local-draft-controls">
-        <div>
-          <p>{saveStateLabel}</p>
-          {reviewSaveError ? (
-            <p className="review-save-error" role="status">
-              {reviewSaveError}
+      ) : (
+        <section className={styles.emptyWorkbench} aria-labelledby="pending-title">
+          <div className={styles.emptyWorkbenchInner}>
+            <p className={styles.eyebrow}>Awaiting line cards</p>
+            <h2 id="pending-title">No reviewable line cards are available yet.</h2>
+            <p>
+              This artifact exists, but no structured lyric cards were returned.
+              Check the generation context above or create a new draft with
+              user-provided lyrics text.
             </p>
-          ) : null}
-          {hasLocalDraft ? (
-            <p>Unsaved browser edits are available for recovery.</p>
-          ) : null}
-        </div>
-        <div className="local-draft-actions">
-          <button
-            disabled={!canSaveReviewEdits}
-            onClick={onSaveReviewEdits}
-            type="button"
-          >
-            {reviewSaveState === "saving" ? "Saving..." : "Save changes"}
-          </button>
-          <button
-            disabled={!hasLocalDraft}
-            onClick={onClearLocalDraft}
-            type="button"
-          >
-            Clear local draft
-          </button>
-        </div>
-      </div>
-
-      <details className="pending-output-section" open={!draft.agentOutput}>
-        <summary>
-          {draft.agentOutput ? "Generation overview" : "Draft output sections"}
-        </summary>
-        <div className="pending-output-heading">
-          <p>
-            {draft.agentOutput
-              ? "A compact overview of the generated study material."
-              : draft.providerMetadata.provider === "fake"
-                ? "The fake provider returns placeholders. Configure the backend OpenAI-compatible provider to generate text-based learning drafts."
-                : "The configured provider did not return structured study material."}
-          </p>
-        </div>
-        <ul className="pending-output-list">
-          {draft.generatedSections.map((section) => (
-            <li key={section.key}>
-              <span>{section.label}</span>
-              <strong>
-                {draft.agentOutput
-                  ? section.status === "generated"
-                    ? "Generated"
-                    : "Needs review"
-                  : section.value}
-              </strong>
-            </li>
-          ))}
-        </ul>
-      </details>
-    </article>
+          </div>
+        </section>
+      )}
+    </>
   );
 }
