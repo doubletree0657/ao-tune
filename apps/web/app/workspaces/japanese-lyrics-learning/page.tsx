@@ -9,27 +9,6 @@ export const metadata: Metadata = {
     "Prepare pronunciation, meaning, and sing-along notes from user-provided Japanese lyrics.",
 };
 
-const learningSteps = [
-  {
-    number: "01",
-    title: "Name the song",
-    description:
-      "Tell AoTune which song you want to study and what you want to practice.",
-  },
-  {
-    number: "02",
-    title: "Add lyrics and context",
-    description:
-      "Provide lyrics text locally, with separate study notes for pronunciation and listening goals.",
-  },
-  {
-    number: "03",
-    title: "Build an artifact",
-    description:
-      "The configured agent organizes text-based pronunciation, meaning, and practice guidance.",
-  },
-];
-
 export default function JapaneseLyricsLearningPage() {
   return (
     <main className="workspace-page">
@@ -39,53 +18,19 @@ export default function JapaneseLyricsLearningPage() {
         <span aria-current="page">Japanese Lyrics Learning</span>
       </nav>
 
-      <header className="workspace-hero">
+      <header className="workspace-compact-header">
         <div>
           <p className="eyebrow">Music learning workspace</p>
           <h1 className="workspace-title">Japanese Lyrics Learning</h1>
           <p className="workspace-intro">
-            Tell AoTune what song you want to study. The configured agent can
-            turn your goal and user-provided lyrics text into a structured
-            learning draft.
+            Open a saved draft, review line cards, and save pronunciation or
+            meaning edits back to your local artifact library.
           </p>
         </div>
         <p className="phase workspace-phase">Phase 1 target</p>
       </header>
 
-      <section className="workspace-section" aria-labelledby="learning-flow-heading">
-        <div className="section-heading">
-          <p className="eyebrow">Learning flow</p>
-          <h2 id="learning-flow-heading">From listening to familiarity</h2>
-          <p>
-            The workspace begins with your song and learning goal, then keeps
-            generated study material together for listening and sing-along
-            practice.
-          </p>
-        </div>
-
-        <ol className="flow-list">
-          {learningSteps.map((step) => (
-            <li key={step.number}>
-              <span>{step.number}</span>
-              <h3>{step.title}</h3>
-              <p>{step.description}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section className="workspace-section" aria-labelledby="agent-request-heading">
-        <div className="section-heading">
-          <p className="eyebrow">Agent request</p>
-          <h2 id="agent-request-heading">What song do you want to study?</h2>
-          <p>
-            AoTune will turn your song goal into a structured learning artifact.
-            The default fake provider returns placeholders. An OpenAI-compatible
-            provider can generate text-based learning drafts when configured on
-            the backend.
-          </p>
-        </div>
-
+      <section className="workspace-app-section" aria-label="Lyrics learning workspace">
         <SongAgentRequest />
       </section>
     </main>

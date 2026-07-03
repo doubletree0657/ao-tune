@@ -30,17 +30,17 @@ export default function AgentRequestForm({
     >
       <div className="agent-panel-heading">
         <div>
-          <p className="artifact-kicker">Song-first request</p>
-          <h3>Tell AoTune what song you want to study.</h3>
+          <p className="artifact-kicker">Draft request</p>
+          <h3>Add the song details and source text.</h3>
         </div>
-        <span>Artifact draft</span>
+        <span>Creation</span>
       </div>
 
       <p className="local-only-note">
         Lyrics text is provided by you locally and sent to the AoTune API for a
         text-based pronunciation draft. Study notes guide the agent but are not
-        treated as lyric lines. Unsaved browser edits are kept only as recovery
-        for the current working artifact.
+        treated as lyric lines. Unsaved browser edits are kept as recovery for
+        this draft request.
       </p>
 
       <div className="request-fields">
@@ -120,7 +120,7 @@ export default function AgentRequestForm({
       ) : null}
 
       <button className="agent-draft-button" disabled={isLoading} type="submit">
-        {isLoading ? "Creating draft..." : "Create agent draft"}
+        {isLoading ? "Creating artifact..." : "Create artifact"}
       </button>
     </form>
   );

@@ -171,6 +171,8 @@ function reviewHasUnsavedChanges(reviewSaveState: ReviewSaveState) {
 
 export default function SongAgentRequest() {
   const [request, setRequest] = useState<SongRequest>(defaultRequest);
+  const [createRequest, setCreateRequest] =
+    useState<SongRequest>(defaultRequest);
   const [draft, setDraft] = useState<LyricsLearningDraft>(initialArtifact);
   const [editableLineCards, setEditableLineCards] = useState<LyricsLineCard[]>([]);
   const [selectedLineIndex, setSelectedLineIndex] = useState(0);
@@ -181,6 +183,7 @@ export default function SongAgentRequest() {
   const [isLibraryLoading, setIsLibraryLoading] = useState(false);
   const [libraryError, setLibraryError] = useState<string | null>(null);
   const [isArtifactLoading, setIsArtifactLoading] = useState(false);
+  const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [hasLocalDraft, setHasLocalDraft] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -192,22 +195,23 @@ export default function SongAgentRequest() {
   useEffect(() => {
     const localDraft = readLocalDraft();
     if (localDraft) {
-      setRequest(localDraft.request);
-      setDraft(localDraft.draft);
-      setEditableLineCards(localDraft.lineCards);
-      setSelectedDraftId(
-        localDraft.workspaceKey === newArtifactWorkspaceKey
-          ? null
-          : localDraft.workspaceKey,
-      );
-      setSelectedLineIndex(
-        Math.min(
-          Math.max(localDraft.selectedLineIndex, 0),
-          Math.max(localDraft.lineCards.length - 1, 0),
-        ),
-      );
+      if (localDraft.workspaceKey === newArtifactWorkspaceKey) {
+        setCreateRequest(localDraft.request);
+        setIsCreatePanelOpen(true);
+      } else {
+        setRequest(localDraft.request);
+        setDraft(localDraft.draft);
+        setEditableLineCards(localDraft.lineCards);
+        setSelectedDraftId(localDraft.workspaceKey);
+        setSelectedLineIndex(
+          Math.min(
+            Math.max(localDraft.selectedLineIndex, 0),
+            Math.max(localDraft.lineCards.length - 1, 0),
+          ),
+        );
+        setReviewSaveState(localDraft.draft.agentOutput ? "unsaved" : "clean");
+      }
       setHasLocalDraft(true);
-      setReviewSaveState(localDraft.draft.agentOutput ? "unsaved" : "clean");
     }
     setHasHydrated(true);
   }, []);
@@ -221,10 +225,16 @@ export default function SongAgentRequest() {
       return;
     }
 
+    const hasUnsavedNewArtifactRequest =
+      isCreatePanelOpen && requestHasLocalChanges(createRequest);
     const hasUnsavedRequest = requestHasUnsavedChanges(request, draft);
     const hasUnsavedReviewEdits = reviewHasUnsavedChanges(reviewSaveState);
 
-    if (!hasUnsavedRequest && !hasUnsavedReviewEdits) {
+    if (
+      !hasUnsavedNewArtifactRequest &&
+      !hasUnsavedRequest &&
+      !hasUnsavedReviewEdits
+    ) {
       try {
         window.localStorage.removeItem(localDraftStorageKey);
       } catch {
@@ -236,11 +246,13 @@ export default function SongAgentRequest() {
 
     const localDraft: LocalDraft = {
       version: 2,
-      workspaceKey: workspaceKeyForDraft(draft),
-      request,
-      draft,
-      lineCards: editableLineCards,
-      selectedLineIndex,
+      workspaceKey: hasUnsavedNewArtifactRequest
+        ? newArtifactWorkspaceKey
+        : workspaceKeyForDraft(draft),
+      request: hasUnsavedNewArtifactRequest ? createRequest : request,
+      draft: hasUnsavedNewArtifactRequest ? initialArtifact : draft,
+      lineCards: hasUnsavedNewArtifactRequest ? [] : editableLineCards,
+      selectedLineIndex: hasUnsavedNewArtifactRequest ? 0 : selectedLineIndex,
     };
     try {
       window.localStorage.setItem(
@@ -252,9 +264,11 @@ export default function SongAgentRequest() {
       setHasLocalDraft(false);
     }
   }, [
+    createRequest,
     draft,
     editableLineCards,
     hasHydrated,
+    isCreatePanelOpen,
     request,
     reviewSaveState,
     selectedLineIndex,
@@ -286,13 +300,11 @@ export default function SongAgentRequest() {
     );
   }
 
-  function confirmDiscardUnsavedChanges() {
+  function confirmDiscardUnsavedChanges(message: string) {
     if (!hasUnsavedChanges()) {
       return true;
     }
-    return window.confirm(
-      "Discard unsaved edits and switch to another artifact?",
-    );
+    return window.confirm(message);
   }
 
   function applyServerDraft(response: LyricsLearningDraft) {
@@ -307,8 +319,8 @@ export default function SongAgentRequest() {
     setError(null);
   }
 
-  function updateField(field: keyof SongRequest, value: string) {
-    setRequest((current) => ({ ...current, [field]: value }));
+  function updateCreateField(field: keyof SongRequest, value: string) {
+    setCreateRequest((current) => ({ ...current, [field]: value }));
   }
 
   async function createDraft() {
@@ -317,11 +329,13 @@ export default function SongAgentRequest() {
 
     try {
       const response = await createLyricsLearningDraft({
-        ...request,
-        lyricsText: request.lyricsText.trim() || undefined,
-        studyNotes: request.studyNotes.trim() || undefined,
+        ...createRequest,
+        lyricsText: createRequest.lyricsText.trim() || undefined,
+        studyNotes: createRequest.studyNotes.trim() || undefined,
       } satisfies LyricsLearningDraftRequest);
       applyServerDraft(response);
+      setCreateRequest(defaultRequest);
+      setIsCreatePanelOpen(false);
       await refreshArtifactSummaries();
     } catch (requestError) {
       if (requestError instanceof LyricsLearningApiError) {
@@ -340,7 +354,11 @@ export default function SongAgentRequest() {
     if (draftId === selectedDraftId) {
       return;
     }
-    if (!confirmDiscardUnsavedChanges()) {
+    if (
+      !confirmDiscardUnsavedChanges(
+        "Discard unsaved edits and switch to another artifact?",
+      )
+    ) {
       return;
     }
 
@@ -406,11 +424,32 @@ export default function SongAgentRequest() {
     }
   }
 
-  function newArtifact() {
-    if (!confirmDiscardUnsavedChanges()) {
+  function openCreatePanel() {
+    if (
+      !confirmDiscardUnsavedChanges(
+        "Discard unsaved edits before creating a new artifact?",
+      )
+    ) {
       return;
     }
-    clearLocalDraft();
+    setCreateRequest(defaultRequest);
+    setError(null);
+    setIsCreatePanelOpen(true);
+  }
+
+  function closeCreatePanel() {
+    if (isLoading) {
+      return;
+    }
+    if (
+      requestHasLocalChanges(createRequest) &&
+      !window.confirm("Discard the new artifact draft?")
+    ) {
+      return;
+    }
+    setCreateRequest(defaultRequest);
+    setError(null);
+    setIsCreatePanelOpen(false);
   }
 
   function clearLocalDraft() {
@@ -430,40 +469,81 @@ export default function SongAgentRequest() {
     setReviewSaveError(null);
   }
 
+  const hasSelectedArtifact =
+    selectedDraftId !== null && draft.id !== initialArtifact.id;
+
   return (
     <>
-      <ArtifactLibrary
-        error={libraryError}
-        isLoading={isLibraryLoading || isArtifactLoading}
-        onNewArtifact={newArtifact}
-        onRefresh={refreshArtifactSummaries}
-        onSelectArtifact={openArtifact}
-        selectedDraftId={selectedDraftId}
-        summaries={artifactSummaries}
-      />
-      <div
-        className={`agent-workbench${draft.agentOutput ? " has-generated-artifact" : ""}`}
-      >
-        <AgentRequestForm
-          error={error}
-          isLoading={isLoading}
-          onFieldChange={updateField}
-          onSubmit={createDraft}
-          request={request}
+      <div className="lyrics-workspace-shell">
+        <ArtifactLibrary
+          error={libraryError}
+          isLoading={isLibraryLoading || isArtifactLoading}
+          onNewArtifact={openCreatePanel}
+          onRefresh={refreshArtifactSummaries}
+          onSelectArtifact={openArtifact}
+          selectedDraftId={selectedDraftId}
+          summaries={artifactSummaries}
         />
-        <AgentDraftArtifact
-          draft={draft}
-          hasLocalDraft={hasLocalDraft}
-          lineCards={editableLineCards}
-          onClearLocalDraft={clearLocalDraft}
-          onLineCardsChange={updateLineCards}
-          onSaveReviewEdits={saveReviewEdits}
-          onSelectedLineIndexChange={setSelectedLineIndex}
-          reviewSaveError={reviewSaveError}
-          reviewSaveState={reviewSaveState}
-          selectedLineIndex={selectedLineIndex}
-        />
+        <section className="workspace-workbench" aria-label="Selected artifact">
+          {hasSelectedArtifact ? (
+            <AgentDraftArtifact
+              draft={draft}
+              hasLocalDraft={hasLocalDraft}
+              lineCards={editableLineCards}
+              onClearLocalDraft={clearLocalDraft}
+              onLineCardsChange={updateLineCards}
+              onSaveReviewEdits={saveReviewEdits}
+              onSelectedLineIndexChange={setSelectedLineIndex}
+              reviewSaveError={reviewSaveError}
+              reviewSaveState={reviewSaveState}
+              selectedLineIndex={selectedLineIndex}
+            />
+          ) : (
+            <div className="workbench-empty">
+              <p className="artifact-kicker">Workbench</p>
+              <h2>Select a saved artifact</h2>
+              <p>
+                Choose a draft from the library to review line cards, update
+                pronunciation notes, and save changes. Use New artifact when you
+                want to generate a fresh draft from user-provided lyrics.
+              </p>
+            </div>
+          )}
+        </section>
       </div>
+
+      {isCreatePanelOpen ? (
+        <div
+          aria-labelledby="create-artifact-title"
+          aria-modal="true"
+          className="creation-overlay"
+          role="dialog"
+        >
+          <div className="creation-panel">
+            <div className="creation-panel-header">
+              <div>
+                <p className="artifact-kicker">New artifact</p>
+                <h2 id="create-artifact-title">Create a lyrics learning draft</h2>
+              </div>
+              <button
+                aria-label="Close new artifact panel"
+                disabled={isLoading}
+                onClick={closeCreatePanel}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+            <AgentRequestForm
+              error={error}
+              isLoading={isLoading}
+              onFieldChange={updateCreateField}
+              onSubmit={createDraft}
+              request={createRequest}
+            />
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
