@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import AppShell from "./components/app-shell";
+import { ThemeProvider } from "./components/theme-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,9 +16,32 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html data-theme="light" lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+(function () {
+  try {
+    var key = "aotune.theme-cache";
+    var theme = window.localStorage.getItem(key);
+    var allowed = { light: true, black: true, midnight: true, sky: true };
+    if (!allowed[theme]) theme = "light";
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme =
+      theme === "black" || theme === "midnight" ? "dark" : "light";
+  } catch (_) {
+    document.documentElement.dataset.theme = "light";
+    document.documentElement.style.colorScheme = "light";
+  }
+})();`,
+          }}
+        />
+      </head>
       <body>
-        <AppShell>{children}</AppShell>
+        <ThemeProvider>
+          <AppShell>{children}</AppShell>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
+import ThemeSelector from "./theme-selector";
 import styles from "./app-shell.module.css";
 
 export default function AppShell({ children }: { children: ReactNode }) {
@@ -43,6 +44,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               Workspaces
             </Link>
           </nav>
+          <ThemeSelector />
         </div>
       </header>
       <div className={styles.content}>{children}</div>

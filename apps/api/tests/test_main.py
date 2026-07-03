@@ -55,7 +55,7 @@ async def post(path: str, json: dict[str, str]) -> httpx.Response:
         return await client.post(path, json=json)
 
 
-async def options(path: str) -> httpx.Response:
+async def options(path: str, method: str = "POST") -> httpx.Response:
     transport = httpx.ASGITransport(app=app)
 
     async with httpx.AsyncClient(
@@ -66,7 +66,7 @@ async def options(path: str) -> httpx.Response:
             path,
             headers={
                 "Access-Control-Request-Headers": "content-type",
-                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Method": method,
                 "Origin": "http://localhost:3000",
             },
         )
@@ -221,3 +221,13 @@ def test_lyrics_learning_draft_allows_local_frontend_origin() -> None:
         "http://localhost:3000"
     )
     assert "content-type" in response.headers["access-control-allow-headers"].lower()
+
+
+def test_preferences_allows_local_frontend_patch() -> None:
+    response = asyncio.run(options("/api/preferences", method="PATCH"))
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == (
+        "http://localhost:3000"
+    )
+    assert "PATCH" in response.headers["access-control-allow-methods"]

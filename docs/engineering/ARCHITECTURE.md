@@ -24,11 +24,11 @@ backend or agent orchestration concerns in React components.
 ### `apps/api`
 
 The API owns HTTP contracts and future application services. Current routes are
-limited to health information, workspace template placeholders, and Japanese
-Lyrics Learning draft creation/loading. Lyrics draft routes delegate to an
-application service, which calls a provider selected from environment
-configuration before opening a PostgreSQL transaction to persist the artifact
-and line cards atomically. Provider selection is environment-aware and
+limited to health information, workspace template placeholders, application
+preferences, and Japanese Lyrics Learning draft creation/loading. Lyrics draft
+routes delegate to an application service, which calls a provider selected from
+environment configuration before opening a PostgreSQL transaction to persist the
+artifact and line cards atomically. Provider selection is environment-aware and
 backend-only; the frontend does not expose model switching. In test, only the
 fake provider can resolve. In development, `auto` resolves to fake with no LLM
 configuration and to the OpenAI-compatible provider only when base URL, model,
@@ -40,6 +40,13 @@ against Pydantic schemas before returning it. Model output that cannot be
 validated becomes a reviewable artifact with a controlled error message. Route
 handlers should remain thin, with domain logic moved into focused services only
 when that logic exists.
+
+Application preferences are currently installation-global. The singleton
+`application_preferences` table stores the selected theme for all browsers using
+the same database. The frontend may use `localStorage` only as a pre-paint
+display cache; PostgreSQL remains authoritative. When authentication exists,
+per-user preferences should be modeled separately, with the singleton preference
+remaining available as a system default or fallback.
 
 ## Current Development Runtime
 

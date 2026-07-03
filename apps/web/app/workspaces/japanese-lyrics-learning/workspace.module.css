@@ -78,7 +78,7 @@
   min-width: 0;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--color-panel);
   box-shadow: var(--shadow-subtle);
 }
 
@@ -109,7 +109,7 @@
   justify-content: space-between;
   padding: var(--space-4);
   border-bottom: 1px solid var(--color-line);
-  background: rgba(251, 250, 246, 0.64);
+  background: var(--color-panel-header);
 }
 
 .panelTitle {
@@ -154,7 +154,7 @@
 
 .primaryButton {
   border: 1px solid var(--color-accent);
-  color: #ffffff;
+  color: var(--color-accent-text);
   background: var(--color-accent);
 }
 
@@ -186,6 +186,8 @@
 .ghostButton:disabled,
 .iconButton:disabled {
   opacity: 0.52;
+  color: var(--color-disabled-text);
+  background: var(--color-disabled-surface);
 }
 
 .libraryScroll,
@@ -193,7 +195,7 @@
 .editorScroll {
   min-height: 0;
   overflow: auto;
-  scrollbar-color: rgba(44, 114, 132, 0.28) transparent;
+  scrollbar-color: var(--color-scrollbar) var(--color-scrollbar-track);
 }
 
 .libraryScroll {
@@ -256,11 +258,11 @@
 }
 
 .summaryButton:hover {
-  background: rgba(44, 114, 132, 0.07);
+  background: var(--color-accent-wash);
 }
 
 .summaryButton[aria-current="true"] {
-  border-color: rgba(44, 114, 132, 0.28);
+  border-color: var(--color-accent-border);
   background: var(--color-accent-soft);
   box-shadow: inset 3px 0 var(--color-accent);
 }
@@ -314,7 +316,7 @@
 .neutralPill,
 .providerPill {
   color: var(--color-text-soft);
-  background: rgba(42, 51, 58, 0.08);
+  background: var(--color-neutral-soft);
 }
 
 .reviewPill {
@@ -331,7 +333,7 @@
   overflow: hidden;
   height: 0.45rem;
   border-radius: 999px;
-  background: rgba(42, 51, 58, 0.1);
+  background: var(--color-progress-track);
 }
 
 .progressBar span {
@@ -346,8 +348,7 @@
   gap: var(--space-4);
   padding: var(--space-4);
   border-bottom: 1px solid var(--color-line);
-  background:
-    linear-gradient(180deg, rgba(217, 237, 240, 0.72), rgba(251, 250, 246, 0.82));
+  background: var(--gradient-artifact);
 }
 
 .artifactTitleRow {
@@ -378,7 +379,7 @@
   padding: var(--space-3);
   border: 1px solid var(--color-line);
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.68);
+  background: var(--color-card);
 }
 
 .reviewStats dt {
@@ -422,7 +423,7 @@
   padding: var(--space-3);
   border: 1px solid var(--color-line);
   border-radius: var(--radius-md);
-  background: rgba(251, 250, 246, 0.78);
+  background: var(--color-card);
 }
 
 .detailBlockWide {
@@ -466,11 +467,11 @@
 }
 
 .lineButton:hover {
-  background: rgba(44, 114, 132, 0.07);
+  background: var(--color-accent-wash);
 }
 
 .lineButton[aria-current="true"] {
-  border-color: rgba(44, 114, 132, 0.28);
+  border-color: var(--color-accent-border);
   background: var(--color-accent-soft);
 }
 
@@ -481,7 +482,7 @@
   place-items: center;
   border-radius: 999px;
   color: var(--color-accent-strong);
-  background: rgba(44, 114, 132, 0.12);
+  background: var(--color-accent-wash);
   font-size: 0.76rem;
   font-weight: 850;
 }
@@ -512,7 +513,7 @@
 
 .editor {
   grid-template-rows: auto auto minmax(0, 1fr);
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--color-panel);
 }
 
 .editorScroll {
@@ -581,7 +582,7 @@
   border: 1px solid var(--color-line-strong);
   border-radius: var(--radius-md);
   color: var(--color-text);
-  background: #ffffff;
+  background: var(--color-input);
   line-height: 1.5;
 }
 
@@ -591,12 +592,12 @@
 
 .field textarea:focus,
 .field input:focus {
-  border-color: rgba(44, 114, 132, 0.55);
+  border-color: var(--color-accent-border);
 }
 
 .field textarea::placeholder,
 .field input::placeholder {
-  color: var(--color-text-muted);
+  color: var(--color-placeholder);
 }
 
 .fieldHelp {
@@ -606,13 +607,12 @@
 }
 
 .editorFooter {
-  display: flex;
+  display: grid;
   gap: var(--space-4);
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
   padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--color-line);
-  background: rgba(251, 250, 246, 0.94);
+  background: var(--color-panel-header);
 }
 
 .saveState {
@@ -632,7 +632,7 @@
 
 .reviewActions {
   display: flex;
-  flex: 0 0 auto;
+  flex-wrap: wrap;
   gap: var(--space-2);
   align-items: center;
 }
@@ -668,7 +668,7 @@
   align-items: stretch;
   justify-items: flex-end;
   padding: var(--space-4);
-  background: rgba(31, 39, 46, 0.48);
+  background: var(--color-overlay);
 }
 
 .dialog {
@@ -734,8 +734,8 @@
 .spinner {
   width: 1rem;
   height: 1rem;
-  border: 2px solid rgba(255, 255, 255, 0.48);
-  border-top-color: #ffffff;
+  border: 2px solid var(--color-accent-soft);
+  border-top-color: var(--color-accent-text);
   border-radius: 999px;
   animation: spin 0.9s linear infinite;
 }
@@ -749,11 +749,6 @@
 @media (max-width: 1280px) {
   .workspaceShell {
     grid-template-columns: minmax(225px, 0.65fr) minmax(275px, 0.85fr) minmax(390px, 1.2fr);
-  }
-
-  .editorFooter {
-    display: grid;
-    align-items: flex-start;
   }
 
   .reviewActions {

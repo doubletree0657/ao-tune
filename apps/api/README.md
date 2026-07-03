@@ -86,6 +86,45 @@ Run migrations before starting the API:
 uv run alembic upgrade head
 ```
 
+## Application Preferences
+
+AoTune stores the current application theme in PostgreSQL. The current
+implementation is application-global because user accounts do not exist yet: all
+browsers connected to the same database share the selected theme.
+
+The `application_preferences` table is a singleton table seeded by Alembic with
+`id = 1` and `theme = light`. Database constraints keep the row ID fixed to `1`
+and allow only `light`, `black`, `midnight`, or `sky`.
+
+Read the current preference:
+
+```bash
+curl http://localhost:8000/api/preferences
+```
+
+Example response:
+
+```json
+{
+  "theme": "light",
+  "updatedAt": "2026-07-02T00:00:00Z"
+}
+```
+
+Update the theme:
+
+```bash
+curl -X PATCH http://localhost:8000/api/preferences \
+  -H "Content-Type: application/json" \
+  -d '{"theme": "midnight"}'
+```
+
+The frontend may keep `aotune.theme-cache` in `localStorage` only as a display
+cache to apply the last known theme before first paint. PostgreSQL remains the
+authoritative preference source. A future authenticated implementation should
+introduce per-user preferences; the singleton row can remain as the system
+default or fallback.
+
 `AOTUNE_APP_ENV` accepts `test`, `development`, or `production`; the default is
 `development`. `AOTUNE_AGENT_PROVIDER` accepts `auto`, `fake`, or
 `openai-compatible`; the default is `auto`.

@@ -6,6 +6,20 @@ export type LyricsLearningDraftRequest = {
   studyNotes?: string;
 };
 
+export type ApplicationTheme = "light" | "black" | "midnight" | "sky";
+
+export const applicationThemes: readonly ApplicationTheme[] = [
+  "light",
+  "black",
+  "midnight",
+  "sky",
+];
+
+export type ApplicationPreferences = {
+  theme: ApplicationTheme;
+  updatedAt: string;
+};
+
 export type GeneratedSection = {
   key: string;
   label: string;
@@ -87,13 +101,27 @@ const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
   "http://localhost:8000";
 
-export class LyricsLearningApiError extends Error {
+export class AoTuneApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
   ) {
     super(message);
+    this.name = "AoTuneApiError";
+  }
+}
+
+export class LyricsLearningApiError extends AoTuneApiError {
+  constructor(message: string, status: number) {
+    super(message, status);
     this.name = "LyricsLearningApiError";
+  }
+}
+
+export class ApplicationPreferencesApiError extends AoTuneApiError {
+  constructor(message: string, status: number) {
+    super(message, status);
+    this.name = "ApplicationPreferencesApiError";
   }
 }
 
@@ -112,7 +140,7 @@ async function getApiErrorMessage(response: Response): Promise<string> {
         return detail;
       }
       if (Array.isArray(detail)) {
-        return "The draft request was invalid. Check the required fields and try again.";
+        return "The request was invalid. Check the required fields and try again.";
       }
     }
   } catch {
@@ -122,67 +150,86 @@ async function getApiErrorMessage(response: Response): Promise<string> {
   return fallback;
 }
 
+async function requestJson<T>(
+  path: string,
+  init: RequestInit | undefined,
+  ErrorClass: new (message: string, status: number) => AoTuneApiError,
+): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}${path}`, init);
+
+  if (!response.ok) {
+    throw new ErrorClass(await getApiErrorMessage(response), response.status);
+  }
+
+  return (await response.json()) as T;
+}
+
+export async function getApplicationPreferences(): Promise<ApplicationPreferences> {
+  return requestJson<ApplicationPreferences>(
+    "/api/preferences",
+    undefined,
+    ApplicationPreferencesApiError,
+  );
+}
+
+export async function updateApplicationTheme(
+  theme: ApplicationTheme,
+): Promise<ApplicationPreferences> {
+  return requestJson<ApplicationPreferences>(
+    "/api/preferences",
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ theme }),
+    },
+    ApplicationPreferencesApiError,
+  );
+}
+
 export async function createLyricsLearningDraft(
   request: LyricsLearningDraftRequest,
 ): Promise<LyricsLearningDraft> {
-  const response = await fetch(`${apiBaseUrl}/api/lyrics-learning/drafts`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  return requestJson<LyricsLearningDraft>(
+    "/api/lyrics-learning/drafts",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
     },
-    body: JSON.stringify(request),
-  });
-
-  if (!response.ok) {
-    throw new LyricsLearningApiError(
-      await getApiErrorMessage(response),
-      response.status,
-    );
-  }
-
-  return (await response.json()) as LyricsLearningDraft;
+    LyricsLearningApiError,
+  );
 }
 
 export async function getLyricsLearningDraft(
   draftId: string,
 ): Promise<LyricsLearningDraft> {
-  const response = await fetch(
-    `${apiBaseUrl}/api/lyrics-learning/drafts/${draftId}`,
+  return requestJson<LyricsLearningDraft>(
+    `/api/lyrics-learning/drafts/${draftId}`,
+    undefined,
+    LyricsLearningApiError,
   );
-
-  if (!response.ok) {
-    throw new LyricsLearningApiError(
-      await getApiErrorMessage(response),
-      response.status,
-    );
-  }
-
-  return (await response.json()) as LyricsLearningDraft;
 }
 
 export async function listLyricsLearningDrafts(
   limit = 50,
 ): Promise<LyricsLearningDraftSummary[]> {
-  const response = await fetch(
-    `${apiBaseUrl}/api/lyrics-learning/drafts?limit=${limit}`,
+  return requestJson<LyricsLearningDraftSummary[]>(
+    `/api/lyrics-learning/drafts?limit=${limit}`,
+    undefined,
+    LyricsLearningApiError,
   );
-
-  if (!response.ok) {
-    throw new LyricsLearningApiError(
-      await getApiErrorMessage(response),
-      response.status,
-    );
-  }
-
-  return (await response.json()) as LyricsLearningDraftSummary[];
 }
 
 export async function updateLyricsLearningDraft(
   draftId: string,
   request: LyricsLearningDraftUpdateRequest,
 ): Promise<LyricsLearningDraft> {
-  const response = await fetch(
-    `${apiBaseUrl}/api/lyrics-learning/drafts/${draftId}`,
+  return requestJson<LyricsLearningDraft>(
+    `/api/lyrics-learning/drafts/${draftId}`,
     {
       method: "PATCH",
       headers: {
@@ -190,14 +237,6 @@ export async function updateLyricsLearningDraft(
       },
       body: JSON.stringify(request),
     },
+    LyricsLearningApiError,
   );
-
-  if (!response.ok) {
-    throw new LyricsLearningApiError(
-      await getApiErrorMessage(response),
-      response.status,
-    );
-  }
-
-  return (await response.json()) as LyricsLearningDraft;
 }

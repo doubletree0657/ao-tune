@@ -6,7 +6,10 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from app.config import Settings
 from app.db import Base
-from app.models import lyrics_learning  # noqa: F401
+from app.models import (
+    application_preferences,  # noqa: F401
+    lyrics_learning,  # noqa: F401
+)
 
 config = context.config
 

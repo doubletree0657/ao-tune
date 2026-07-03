@@ -48,9 +48,16 @@ pytestmark = pytest.mark.skipif(
 def migrated_database() -> None:
     assert TEST_DATABASE_URL is not None
     assert_test_database_is_safe(TEST_DATABASE_URL)
-    os.environ["AOTUNE_DATABASE_URL"] = TEST_DATABASE_URL
-    config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
-    command.upgrade(config, "head")
+    original_database_url = os.environ.get("AOTUNE_DATABASE_URL")
+    try:
+        os.environ["AOTUNE_DATABASE_URL"] = TEST_DATABASE_URL
+        config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+        command.upgrade(config, "head")
+    finally:
+        if original_database_url is None:
+            os.environ.pop("AOTUNE_DATABASE_URL", None)
+        else:
+            os.environ["AOTUNE_DATABASE_URL"] = original_database_url
 
 
 @pytest.fixture
