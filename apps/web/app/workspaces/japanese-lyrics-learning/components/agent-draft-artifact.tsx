@@ -1,4 +1,5 @@
 import type { LyricsLearningDraft, LyricsLineCard } from "@/lib/api";
+import type { SongSheetLayoutMode } from "@/lib/api";
 import { useApplicationSettings } from "@/app/components/theme-provider";
 
 import JapaneseTextSizeControl from "./japanese-text-size-control";
@@ -7,7 +8,8 @@ import SelectedLineCardEditor from "./selected-line-card-editor";
 import SongSheet from "./song-sheet";
 import styles from "../workspace.module.css";
 
-export type WorkspaceMode = "song" | "compact" | "review";
+export type WorkspaceMode = "reader" | "overview" | "sing_along" | "editor";
+type ReadingWorkspaceMode = Exclude<WorkspaceMode, "editor">;
 
 type AgentDraftArtifactProps = {
   draft: LyricsLearningDraft;
@@ -56,6 +58,26 @@ function shouldShowSaveState(
   return reviewSaveState !== "clean";
 }
 
+function layoutModeForReadingMode(mode: ReadingWorkspaceMode): SongSheetLayoutMode {
+  if (mode === "overview") {
+    return "compact";
+  }
+  if (mode === "sing_along") {
+    return "sing_along";
+  }
+  return "continuous";
+}
+
+function readingModeForLayoutMode(layoutMode: SongSheetLayoutMode): ReadingWorkspaceMode {
+  if (layoutMode === "compact") {
+    return "overview";
+  }
+  if (layoutMode === "sing_along") {
+    return "sing_along";
+  }
+  return "reader";
+}
+
 export default function AgentDraftArtifact({
   draft,
   hasLocalDraft,
@@ -91,14 +113,22 @@ export default function AgentDraftArtifact({
     if (nextIndex >= 0) {
       onSelectedLineIndexChange(nextIndex);
     }
-    onModeChange("review");
+    onModeChange("editor");
   }
 
-  function setReadingMode(nextMode: Exclude<WorkspaceMode, "review">) {
+  function setReadingMode(nextMode: ReadingWorkspaceMode) {
     onModeChange(nextMode);
     void setSongSheetSettings({
-      layoutMode: nextMode === "compact" ? "compact" : "continuous",
+      layoutMode: layoutModeForReadingMode(nextMode),
     });
+  }
+
+  function toggleEditorMode() {
+    onModeChange(
+      mode === "editor"
+        ? readingModeForLayoutMode(songSheetSettings.layoutMode)
+        : "editor",
+    );
   }
 
   return (
@@ -116,35 +146,43 @@ export default function AgentDraftArtifact({
         <div className={styles.workbenchControls}>
           <div className={styles.modeTabs} role="group" aria-label="View mode">
             <button
-              aria-pressed={mode === "song"}
+              aria-pressed={mode === "reader"}
               className={styles.modeButton}
-              onClick={() => setReadingMode("song")}
+              onClick={() => setReadingMode("reader")}
               type="button"
             >
-              Song view
+              Reader
             </button>
             <button
-              aria-pressed={mode === "compact"}
+              aria-pressed={mode === "overview"}
               className={styles.modeButton}
-              onClick={() => setReadingMode("compact")}
+              onClick={() => setReadingMode("overview")}
               type="button"
             >
-              Compact view
+              Overview
             </button>
             <button
-              aria-pressed={mode === "review"}
+              aria-pressed={mode === "sing_along"}
               className={styles.modeButton}
-              onClick={() => onModeChange("review")}
+              onClick={() => setReadingMode("sing_along")}
               type="button"
             >
-              Review cards
+              Sing-along
+            </button>
+            <button
+              aria-pressed={mode === "editor"}
+              className={styles.modeButton}
+              onClick={toggleEditorMode}
+              type="button"
+            >
+              Editor
             </button>
           </div>
 
-          {mode !== "review" ? (
+          {mode !== "editor" ? (
             <div
               className={styles.toggleGroup}
-              aria-label="Song Sheet display options"
+              aria-label="Lyrics display options"
             >
               <JapaneseTextSizeControl
                 onChange={(originalTextSize) =>
@@ -227,9 +265,9 @@ export default function AgentDraftArtifact({
         </p>
       ) : null}
 
-      {mode === "song" || mode === "compact" ? (
+      {mode !== "editor" ? (
         <SongSheet
-          layoutMode={mode === "compact" ? "compact" : "continuous"}
+          layoutMode={layoutModeForReadingMode(mode)}
           lineCards={lineCards}
           onEditLine={editLine}
           originalTextSize={songSheetSettings.originalTextSize}

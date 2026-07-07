@@ -405,28 +405,60 @@ def test_patch_font_size_preserves_theme_and_visibility(
     }
 
 
-def test_patch_layout_mode_preserves_font_size(
+@pytest.mark.parametrize("layout_mode", ["continuous", "compact", "sing_along"])
+def test_supported_layout_modes_are_accepted(
+    layout_mode: str,
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
-    asyncio.run(
-        patch(
-            "/api/settings",
-            {"lyricsLearning": {"songSheet": {"originalTextSize": 22}}},
-            session_factory,
-        )
-    )
     response = asyncio.run(
         patch(
             "/api/settings",
-            {"lyricsLearning": {"songSheet": {"layoutMode": "compact"}}},
+            {"lyricsLearning": {"songSheet": {"layoutMode": layout_mode}}},
             session_factory,
         )
     )
 
     assert response.status_code == 200
+    assert response.json()["lyricsLearning"]["songSheet"]["layoutMode"] == layout_mode
+
+
+def test_patch_layout_mode_preserves_other_settings(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    asyncio.run(patch("/api/settings", {"theme": "black"}, session_factory))
+    asyncio.run(
+        patch(
+            "/api/settings",
+            {
+                "lyricsLearning": {
+                    "songSheet": {
+                        "showRomaji": False,
+                        "showTranslation": False,
+                        "originalTextSize": 22,
+                    }
+                }
+            },
+            session_factory,
+        )
+    )
+    asyncio.run(
+        patch(
+            "/api/settings",
+            {"lyricsLearning": {"songSheet": {"layoutMode": "sing_along"}}},
+            session_factory,
+        )
+    )
+    response = asyncio.run(get("/api/settings", session_factory))
+
+    assert response.status_code == 200
     body = response.json()
-    assert body["lyricsLearning"]["songSheet"]["originalTextSize"] == 22
-    assert body["lyricsLearning"]["songSheet"]["layoutMode"] == "compact"
+    assert body["theme"] == "black"
+    assert body["lyricsLearning"]["songSheet"] == {
+        "showRomaji": False,
+        "showTranslation": False,
+        "originalTextSize": 22,
+        "layoutMode": "sing_along",
+    }
 
 
 def test_patch_theme_preserves_all_song_sheet_options(
@@ -491,7 +523,7 @@ def test_sequential_independent_partial_updates_do_not_overwrite_each_other(
     layout_response = asyncio.run(
         patch(
             "/api/settings",
-            {"lyricsLearning": {"songSheet": {"layoutMode": "compact"}}},
+            {"lyricsLearning": {"songSheet": {"layoutMode": "sing_along"}}},
             session_factory,
         )
     )
@@ -507,7 +539,7 @@ def test_sequential_independent_partial_updates_do_not_overwrite_each_other(
         "showRomaji": False,
         "showTranslation": False,
         "originalTextSize": 34,
-        "layoutMode": "compact",
+        "layoutMode": "sing_along",
     }
 
 

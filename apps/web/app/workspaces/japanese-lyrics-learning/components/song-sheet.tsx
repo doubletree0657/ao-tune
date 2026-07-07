@@ -27,6 +27,9 @@ type SongSheetStyle = CSSProperties & {
   "--song-sheet-padding-bottom": string;
   "--song-compact-gap": string;
   "--song-compact-column-min": string;
+  "--song-singalong-column-gap": string;
+  "--song-singalong-row-gap": string;
+  "--song-singalong-padding-inline": string;
 };
 
 function sortedLineCards(lineCards: LyricsLineCard[]) {
@@ -63,6 +66,9 @@ function songSheetStyle(originalTextSize: number): SongSheetStyle {
     "--song-compact-column-min": `clamp(17rem, ${
       originalTextSize * 11
     }px, 24rem)`,
+    "--song-singalong-column-gap": remValue(0.95, 1.55, density),
+    "--song-singalong-row-gap": remValue(0.55, 1.1, density),
+    "--song-singalong-padding-inline": remValue(0.9, 1.45, density),
   };
 }
 
@@ -74,7 +80,7 @@ type LyricGroupProps = {
   showTranslation: boolean;
 };
 
-function LyricGroup({
+function LyricPhrase({
   card,
   layoutMode,
   onEditLine,
@@ -84,25 +90,34 @@ function LyricGroup({
   const buttonClassName =
     layoutMode === "compact"
       ? `${styles.songLineButton} ${styles.compactLineButton}`
+      : layoutMode === "sing_along"
+        ? `${styles.songLineButton} ${styles.singAlongLineButton}`
       : styles.songLineButton;
+  const textClassName =
+    layoutMode === "sing_along"
+      ? `${styles.songLineText} ${styles.singAlongLineText}`
+      : styles.songLineText;
+  const shouldShowMissingValues = layoutMode !== "sing_along";
 
   return (
     <button
-      aria-label={`Edit line ${card.lineNumber}`}
+      aria-label={`Edit lyric line ${card.lineNumber}`}
       className={buttonClassName}
       onClick={() => onEditLine(card.lineNumber)}
       type="button"
     >
-      <span className={styles.songLineNumber} aria-hidden="true">
-        {card.lineNumber}
-      </span>
-      <span className={styles.songLineText}>
+      {layoutMode === "sing_along" ? null : (
+        <span className={styles.songLineNumber} aria-hidden="true">
+          {card.lineNumber}
+        </span>
+      )}
+      <span className={textClassName}>
         {showRomaji ? (
           card.romaji?.trim() ? (
             <span className={styles.songRomaji}>{card.romaji}</span>
-          ) : (
+          ) : shouldShowMissingValues ? (
             <span className={styles.songMissing}>Romaji not set</span>
-          )
+          ) : null
         ) : null}
         <span className={styles.songJapanese} lang="ja">
           {card.originalText}
@@ -110,12 +125,36 @@ function LyricGroup({
         {showTranslation ? (
           card.meaning?.trim() ? (
             <span className={styles.songTranslation}>{card.meaning}</span>
-          ) : (
+          ) : shouldShowMissingValues ? (
             <span className={styles.songMissing}>Translation not set</span>
-          )
+          ) : null
         ) : null}
       </span>
     </button>
+  );
+}
+
+type LyricPhraseItemProps = LyricGroupProps;
+
+function LyricPhraseItem({
+  card,
+  layoutMode,
+  onEditLine,
+  showRomaji,
+  showTranslation,
+}: LyricPhraseItemProps) {
+  return (
+    <li
+      className={layoutMode === "sing_along" ? styles.singAlongLineItem : undefined}
+    >
+      <LyricPhrase
+        card={card}
+        layoutMode={layoutMode}
+        onEditLine={onEditLine}
+        showRomaji={showRomaji}
+        showTranslation={showTranslation}
+      />
+    </li>
   );
 }
 
@@ -131,6 +170,8 @@ export default function SongSheet({
   const listClassName =
     layoutMode === "compact"
       ? `${styles.songLineList} ${styles.compactLineList}`
+      : layoutMode === "sing_along"
+        ? `${styles.songLineList} ${styles.singAlongLineList}`
       : styles.songLineList;
 
   return (
@@ -138,15 +179,14 @@ export default function SongSheet({
       {orderedCards.length > 0 ? (
         <ol className={listClassName}>
           {orderedCards.map((card) => (
-            <li key={card.lineNumber}>
-              <LyricGroup
-                card={card}
-                layoutMode={layoutMode}
-                onEditLine={onEditLine}
-                showRomaji={showRomaji}
-                showTranslation={showTranslation}
-              />
-            </li>
+            <LyricPhraseItem
+              card={card}
+              key={card.lineNumber}
+              layoutMode={layoutMode}
+              onEditLine={onEditLine}
+              showRomaji={showRomaji}
+              showTranslation={showTranslation}
+            />
           ))}
         </ol>
       ) : (

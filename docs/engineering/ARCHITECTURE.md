@@ -68,15 +68,18 @@ accounts. The current application-level settings may remain as system defaults
 or installation defaults.
 
 The Japanese Lyrics Learning workspace opens saved artifacts into the persisted
-reading layout by default. Song view is the continuous lyrics reader; Compact
-view lays lyric groups left-to-right and then top-to-bottom to use wider
-viewports. The sheet renders only user-provided and persisted line-card content,
-ordered by `lineNumber`, with optional romaji and translation visibility,
-Japanese original-text size, and reading layout controlled by global
-application settings. Romaji and translation remain fixed-size in the current
-stage. Review cards remain the editing source for romaji, meaning,
-pronunciation notes, sing-along notes, and review state; the Song Sheet is a
-projection of the editable line-card state.
+reading layout by default. Reader is the continuous single-column lyrics
+reader. Overview is the dense fixed-grid global browsing view. Sing-along uses
+frontend adaptive wrapping over the existing independent Line Cards and stores
+`sing_along` as the layout setting; it does not merge records in PostgreSQL or
+the Lyrics Learning API. Editor remains the editing source for romaji, meaning,
+pronunciation notes, sing-along notes, and review state. The sheet renders only
+user-provided and persisted line-card content, ordered by `lineNumber`, with
+optional romaji and translation visibility, Japanese original-text size, and
+reading layout controlled by global application settings. Romaji and
+translation remain fixed-size in the current stage, and Romaji segmentation is
+not implemented yet. The reading views are projections of the editable
+line-card state.
 
 ## Current Development Runtime
 

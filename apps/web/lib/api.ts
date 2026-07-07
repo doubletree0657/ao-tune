@@ -7,7 +7,7 @@ export type LyricsLearningDraftRequest = {
 };
 
 export type ApplicationTheme = "light" | "black" | "midnight" | "sky";
-export type SongSheetLayoutMode = "continuous" | "compact";
+export type SongSheetLayoutMode = "continuous" | "compact" | "sing_along";
 
 export const applicationThemes: readonly ApplicationTheme[] = [
   "light",

@@ -166,9 +166,9 @@ PATCH requests are partial. The backend locks the singleton row, validates the
 stored JSON document, merges only provided fields with the latest database
 value, updates `updated_at` when a real setting changes, and preserves unrelated
 settings. `originalTextSize` is an integer from `18` to `36`, and `layoutMode`
-is either `continuous` or `compact`. Unsupported themes, non-boolean Song Sheet
-values, invalid font sizes, invalid layouts, unknown fields, and invalid nested
-structures are rejected.
+is `continuous`, `compact`, or `sing_along`. Unsupported themes, non-boolean
+Song Sheet values, invalid font sizes, invalid layouts, unknown fields, and
+invalid nested structures are rejected.
 
 The frontend may keep `aotune.application-settings-cache.v1` in `localStorage`
 only as a display cache to apply the last known theme and Song Sheet visibility
@@ -178,14 +178,17 @@ settings as account-bound user settings; the singleton row can remain as a
 system default or installation default.
 
 The Japanese Lyrics Learning workspace opens a selected artifact into the
-persisted reading layout by default. Song view is a continuous single-column
-lyrics reader. Compact view arranges lyric groups left-to-right and then
-top-to-bottom to reduce scrolling on wider screens. Both reading layouts display
-only user-provided lyrics content and persisted line-card fields ordered by
+persisted reading layout by default. Reader is a continuous single-column
+lyrics reader. Overview arranges lyric groups in a dense fixed grid for global
+browsing. Sing-along is a frontend adaptive flow over the same independent Line
+Cards and persists `sing_along`; it does not change the Lyrics Learning API or
+database line-card schema. Editor remains the editing source for line-card
+romaji, meaning, notes, and review state. The reading layouts display only
+user-provided lyrics content and persisted line-card fields ordered by
 `lineNumber`; they do not fetch, reconstruct, or infer copyrighted lyrics.
 Japanese original-text size is adjustable. Romaji and translation visibility are
-settings, but their font sizes remain fixed in this stage. Review cards remain
-the editing source for line-card romaji, meaning, notes, and review state.
+settings, but their font sizes remain fixed in this stage. Romaji segmentation
+is not implemented yet.
 
 `AOTUNE_APP_ENV` accepts `test`, `development`, or `production`; the default is
 `development`. `AOTUNE_AGENT_PROVIDER` accepts `auto`, `fake`, or

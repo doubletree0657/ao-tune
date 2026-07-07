@@ -42,7 +42,7 @@ const pendingSections: GeneratedSection[] = [
   ["line_by_line_meaning", "Line-by-line meaning"],
   ["pronunciation_notes", "Pronunciation notes"],
   ["sing_along_notes", "Sing-along notes"],
-  ["review_cards", "Review cards and learning artifacts"],
+  ["review_cards", "Editor line artifacts"],
 ].map(([key, label]) => ({
   key,
   label,
@@ -182,7 +182,13 @@ function wait(milliseconds: number) {
 }
 
 function workspaceModeFromLayout(layoutMode: SongSheetLayoutMode): WorkspaceMode {
-  return layoutMode === "compact" ? "compact" : "song";
+  if (layoutMode === "compact") {
+    return "overview";
+  }
+  if (layoutMode === "sing_along") {
+    return "sing_along";
+  }
+  return "reader";
 }
 
 export default function SongAgentRequest() {
@@ -251,7 +257,7 @@ export default function SongAgentRequest() {
   }, [hasHydrated, persistedReadingMode]);
 
   useEffect(() => {
-    if (workspaceMode !== "review" && workspaceMode !== persistedReadingMode) {
+    if (workspaceMode !== "editor" && workspaceMode !== persistedReadingMode) {
       setWorkspaceMode(persistedReadingMode);
     }
   }, [persistedReadingMode, workspaceMode]);

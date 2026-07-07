@@ -151,7 +151,7 @@ def test_create_lyrics_learning_draft(monkeypatch) -> None:
         "Line-by-line meaning",
         "Pronunciation notes",
         "Sing-along notes",
-        "Review cards and learning artifacts",
+        "Editor line artifacts",
     ]
     assert all(
         section["status"] == "pending"

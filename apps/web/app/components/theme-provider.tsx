@@ -109,7 +109,7 @@ function isBoolean(value: unknown): value is boolean {
 }
 
 function isSongSheetLayoutMode(value: unknown): value is SongSheetLayoutMode {
-  return value === "continuous" || value === "compact";
+  return value === "continuous" || value === "compact" || value === "sing_along";
 }
 
 function isOriginalTextSize(value: unknown): value is number {

@@ -11,7 +11,7 @@ from pydantic import (
 )
 
 ApplicationTheme = Literal["light", "black", "midnight", "sky"]
-SongSheetLayoutMode = Literal["continuous", "compact"]
+SongSheetLayoutMode = Literal["continuous", "compact", "sing_along"]
 ALLOWED_APPLICATION_THEMES: tuple[ApplicationTheme, ...] = (
     "light",
     "black",

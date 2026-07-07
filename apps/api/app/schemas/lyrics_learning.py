@@ -9,7 +9,7 @@ GENERATED_SECTION_DEFINITIONS = (
     ("line_by_line_meaning", "Line-by-line meaning"),
     ("pronunciation_notes", "Pronunciation notes"),
     ("sing_along_notes", "Sing-along notes"),
-    ("review_cards", "Review cards and learning artifacts"),
+    ("review_cards", "Editor line artifacts"),
 )
 
 
