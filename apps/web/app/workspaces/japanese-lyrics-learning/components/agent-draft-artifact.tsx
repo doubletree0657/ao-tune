@@ -1,12 +1,13 @@
 import type { LyricsLearningDraft, LyricsLineCard } from "@/lib/api";
 import { useApplicationSettings } from "@/app/components/theme-provider";
 
+import JapaneseTextSizeControl from "./japanese-text-size-control";
 import LineCardList from "./line-card-list";
 import SelectedLineCardEditor from "./selected-line-card-editor";
 import SongSheet from "./song-sheet";
 import styles from "../workspace.module.css";
 
-export type WorkspaceMode = "song" | "review";
+export type WorkspaceMode = "song" | "compact" | "review";
 
 type AgentDraftArtifactProps = {
   draft: LyricsLearningDraft;
@@ -93,6 +94,13 @@ export default function AgentDraftArtifact({
     onModeChange("review");
   }
 
+  function setReadingMode(nextMode: Exclude<WorkspaceMode, "review">) {
+    onModeChange(nextMode);
+    void setSongSheetSettings({
+      layoutMode: nextMode === "compact" ? "compact" : "continuous",
+    });
+  }
+
   return (
     <section className={styles.workbench} aria-labelledby="artifact-title">
       <header className={styles.workbenchHeader}>
@@ -110,10 +118,18 @@ export default function AgentDraftArtifact({
             <button
               aria-pressed={mode === "song"}
               className={styles.modeButton}
-              onClick={() => onModeChange("song")}
+              onClick={() => setReadingMode("song")}
               type="button"
             >
               Song view
+            </button>
+            <button
+              aria-pressed={mode === "compact"}
+              className={styles.modeButton}
+              onClick={() => setReadingMode("compact")}
+              type="button"
+            >
+              Compact view
             </button>
             <button
               aria-pressed={mode === "review"}
@@ -125,11 +141,17 @@ export default function AgentDraftArtifact({
             </button>
           </div>
 
-          {mode === "song" ? (
+          {mode !== "review" ? (
             <div
               className={styles.toggleGroup}
               aria-label="Song Sheet display options"
             >
+              <JapaneseTextSizeControl
+                onChange={(originalTextSize) =>
+                  setSongSheetSettings({ originalTextSize })
+                }
+                value={songSheetSettings.originalTextSize}
+              />
               <label className={styles.toggleControl}>
                 <input
                   checked={songSheetSettings.showRomaji}
@@ -205,10 +227,12 @@ export default function AgentDraftArtifact({
         </p>
       ) : null}
 
-      {mode === "song" ? (
+      {mode === "song" || mode === "compact" ? (
         <SongSheet
+          layoutMode={mode === "compact" ? "compact" : "continuous"}
           lineCards={lineCards}
           onEditLine={editLine}
+          originalTextSize={songSheetSettings.originalTextSize}
           showRomaji={songSheetSettings.showRomaji}
           showTranslation={songSheetSettings.showTranslation}
         />

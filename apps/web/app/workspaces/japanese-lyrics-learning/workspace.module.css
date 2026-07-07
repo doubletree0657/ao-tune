@@ -395,6 +395,60 @@
   accent-color: var(--color-accent);
 }
 
+.textSizeControl {
+  display: inline-grid;
+  grid-template-columns: auto minmax(5.5rem, 8rem) 3rem auto;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 2rem;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-soft);
+  background: var(--color-control);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.textSizeControl:focus-within,
+.textSizeControl:hover {
+  color: var(--color-text);
+  background: var(--color-control-hover);
+}
+
+.textSizeLabel,
+.textSizeValue {
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.textSizeControl input {
+  width: 100%;
+  min-width: 0;
+  accent-color: var(--color-accent);
+}
+
+.textSizeReset {
+  min-height: 1.55rem;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-soft);
+  background: var(--color-canvas-raised);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.textSizeReset:hover:not(:disabled) {
+  color: var(--color-text);
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-wash);
+}
+
+.textSizeReset:disabled {
+  opacity: 0.48;
+}
+
 .saveCluster {
   justify-content: flex-end;
 }
@@ -433,10 +487,25 @@
 
 .songLineList {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--song-group-gap, var(--space-4));
   max-width: 48rem;
   margin: 0 auto;
-  padding: var(--space-6) var(--space-5) var(--space-10);
+  padding:
+    var(--song-sheet-padding-block, var(--space-6))
+    var(--space-5)
+    var(--song-sheet-padding-bottom, var(--space-10));
+}
+
+.compactLineList {
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, var(--song-compact-column-min, 20rem)), 1fr)
+  );
+  grid-auto-flow: row;
+  gap: var(--song-compact-gap, var(--space-3));
+  align-items: start;
+  max-width: none;
+  padding-inline: var(--space-4);
 }
 
 .songLineButton {
@@ -444,12 +513,21 @@
   grid-template-columns: 2rem minmax(0, 1fr);
   gap: var(--space-4);
   width: 100%;
-  padding: 0.25rem var(--space-2);
+  padding:
+    var(--song-group-padding-block, 0.25rem)
+    var(--space-2);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   color: inherit;
   background: transparent;
   text-align: left;
+}
+
+.compactLineButton {
+  grid-template-columns: 1.55rem minmax(0, 1fr);
+  gap: var(--space-2);
+  min-height: 0;
+  padding-inline: 0.45rem;
 }
 
 .songLineButton:hover {
@@ -466,7 +544,7 @@
 
 .songLineText {
   display: grid;
-  gap: 0.12rem;
+  gap: var(--song-inline-gap, 0.12rem);
   min-width: 0;
 }
 
@@ -480,9 +558,9 @@
 .songJapanese {
   color: var(--color-text);
   font-family: var(--font-ja);
-  font-size: clamp(1.42rem, 2.1vw, 2rem);
+  font-size: var(--song-original-size, 1.875rem);
   font-weight: 760;
-  line-height: 1.52;
+  line-height: var(--song-original-line-height, 1.5);
   overflow-wrap: anywhere;
 }
 
@@ -893,6 +971,10 @@
     justify-content: flex-start;
   }
 
+  .textSizeControl {
+    grid-template-columns: auto minmax(4.75rem, 1fr) 3rem auto;
+  }
+
   .reviewMode {
     grid-template-columns: 1fr;
   }
@@ -915,8 +997,19 @@
   }
 
   .songLineList {
-    gap: var(--space-3);
-    padding: var(--space-5) var(--space-3) var(--space-8);
+    gap: var(--song-group-gap, var(--space-3));
+    padding:
+      var(--song-sheet-padding-block, var(--space-5))
+      var(--space-3)
+      var(--song-sheet-padding-bottom, var(--space-8));
+  }
+
+  .compactLineList {
+    gap: var(--song-compact-gap, var(--space-3));
+    padding:
+      var(--song-sheet-padding-block, var(--space-5))
+      var(--space-3)
+      var(--song-sheet-padding-bottom, var(--space-8));
   }
 
   .songLineButton {
@@ -942,6 +1035,7 @@
 @media (max-width: 430px) {
   .modeTabs,
   .toggleGroup,
+  .textSizeControl,
   .saveCluster {
     width: 100%;
   }
@@ -950,10 +1044,6 @@
   .toggleControl {
     flex: 1 1 0;
     justify-content: center;
-  }
-
-  .songJapanese {
-    font-size: 1.28rem;
   }
 }
 

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
+import { useApplicationSettings } from "@/app/components/theme-provider";
 import {
   createLyricsLearningDraft,
   getLyricsLearningDraft,
@@ -17,6 +18,7 @@ import type {
   LyricsLearningDraftSummary,
   LyricsLearningDraftUpdateRequest,
   LyricsLineCard,
+  SongSheetLayoutMode,
 } from "@/lib/api";
 
 import AgentDraftArtifact from "./components/agent-draft-artifact";
@@ -179,7 +181,15 @@ function wait(milliseconds: number) {
   });
 }
 
+function workspaceModeFromLayout(layoutMode: SongSheetLayoutMode): WorkspaceMode {
+  return layoutMode === "compact" ? "compact" : "song";
+}
+
 export default function SongAgentRequest() {
+  const { songSheetSettings } = useApplicationSettings();
+  const persistedReadingMode = workspaceModeFromLayout(
+    songSheetSettings.layoutMode,
+  );
   const [request, setRequest] = useState<SongRequest>(defaultRequest);
   const [createRequest, setCreateRequest] =
     useState<SongRequest>(defaultRequest);
@@ -187,7 +197,8 @@ export default function SongAgentRequest() {
   const [editableLineCards, setEditableLineCards] = useState<LyricsLineCard[]>([]);
   const [selectedLineIndex, setSelectedLineIndex] = useState(0);
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("song");
+  const [workspaceMode, setWorkspaceMode] =
+    useState<WorkspaceMode>(persistedReadingMode);
   const [artifactSummaries, setArtifactSummaries] = useState<
     LyricsLearningDraftSummary[]
   >([]);
@@ -211,6 +222,10 @@ export default function SongAgentRequest() {
   const isCreateSuccess = createStatus === "success";
 
   useEffect(() => {
+    if (hasHydrated) {
+      return;
+    }
+
     const localDraft = readLocalDraft();
     if (localDraft) {
       if (localDraft.workspaceKey === newArtifactWorkspaceKey) {
@@ -228,12 +243,18 @@ export default function SongAgentRequest() {
           ),
         );
         setReviewSaveState(localDraft.draft.agentOutput ? "unsaved" : "clean");
-        setWorkspaceMode("song");
+        setWorkspaceMode(persistedReadingMode);
       }
       setHasLocalDraft(true);
     }
     setHasHydrated(true);
-  }, []);
+  }, [hasHydrated, persistedReadingMode]);
+
+  useEffect(() => {
+    if (workspaceMode !== "review" && workspaceMode !== persistedReadingMode) {
+      setWorkspaceMode(persistedReadingMode);
+    }
+  }, [persistedReadingMode, workspaceMode]);
 
   useEffect(() => {
     void refreshArtifactSummaries();
@@ -370,7 +391,7 @@ export default function SongAgentRequest() {
     setEditableLineCards(responseLineCards);
     setSelectedLineIndex(0);
     setSelectedDraftId(response.id);
-    setWorkspaceMode("song");
+    setWorkspaceMode(persistedReadingMode);
     setReviewSaveState("clean");
     setReviewSaveError(null);
   }
@@ -542,7 +563,7 @@ export default function SongAgentRequest() {
     setEditableLineCards([]);
     setSelectedLineIndex(0);
     setSelectedDraftId(null);
-    setWorkspaceMode("song");
+    setWorkspaceMode(persistedReadingMode);
     setHasLocalDraft(false);
     setReviewSaveState("clean");
     setReviewSaveError(null);

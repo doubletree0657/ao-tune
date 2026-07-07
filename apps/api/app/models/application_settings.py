@@ -24,7 +24,10 @@ class ApplicationSettings(Base):
     settings: Mapped[dict] = mapped_column(
         JSONB,
         server_default=text(
-            """'{"theme":"light","lyricsLearning":{"songSheet":{"showRomaji":true,"showTranslation":true}}}'::jsonb"""
+            "'{\"theme\":\"light\",\"lyricsLearning\":{\"songSheet\":{"
+            "\"showRomaji\":true,\"showTranslation\":true,"
+            "\"originalTextSize\":30,\"layoutMode\":\"continuous\""
+            "}}}'::jsonb"
         ),
     )
     created_at: Mapped[datetime] = mapped_column(

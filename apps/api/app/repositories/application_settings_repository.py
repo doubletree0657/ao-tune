@@ -87,6 +87,14 @@ def merge_settings_update(
                 merged.lyrics_learning.song_sheet.show_translation = (
                     song_sheet_update.show_translation
                 )
+            if song_sheet_update.original_text_size is not None:
+                merged.lyrics_learning.song_sheet.original_text_size = (
+                    song_sheet_update.original_text_size
+                )
+            if song_sheet_update.layout_mode is not None:
+                merged.lyrics_learning.song_sheet.layout_mode = (
+                    song_sheet_update.layout_mode
+                )
 
     return validate_settings_document(merged.model_dump(by_alias=True))
 

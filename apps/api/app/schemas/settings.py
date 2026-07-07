@@ -1,15 +1,27 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictInt,
+    model_validator,
+)
 
 ApplicationTheme = Literal["light", "black", "midnight", "sky"]
+SongSheetLayoutMode = Literal["continuous", "compact"]
 ALLOWED_APPLICATION_THEMES: tuple[ApplicationTheme, ...] = (
     "light",
     "black",
     "midnight",
     "sky",
 )
+SONG_SHEET_ORIGINAL_TEXT_SIZE_MIN = 18
+SONG_SHEET_ORIGINAL_TEXT_SIZE_MAX = 36
+SONG_SHEET_ORIGINAL_TEXT_SIZE_DEFAULT = 30
+SONG_SHEET_LAYOUT_MODE_DEFAULT: SongSheetLayoutMode = "continuous"
 
 
 class SongSheetSettings(BaseModel):
@@ -17,6 +29,12 @@ class SongSheetSettings(BaseModel):
 
     show_romaji: StrictBool = Field(alias="showRomaji")
     show_translation: StrictBool = Field(alias="showTranslation")
+    original_text_size: StrictInt = Field(
+        ge=SONG_SHEET_ORIGINAL_TEXT_SIZE_MIN,
+        le=SONG_SHEET_ORIGINAL_TEXT_SIZE_MAX,
+        alias="originalTextSize",
+    )
+    layout_mode: SongSheetLayoutMode = Field(alias="layoutMode")
 
 
 class LyricsLearningSettings(BaseModel):
@@ -41,6 +59,13 @@ class SongSheetSettingsUpdateRequest(BaseModel):
 
     show_romaji: StrictBool | None = Field(default=None, alias="showRomaji")
     show_translation: StrictBool | None = Field(default=None, alias="showTranslation")
+    original_text_size: StrictInt | None = Field(
+        default=None,
+        ge=SONG_SHEET_ORIGINAL_TEXT_SIZE_MIN,
+        le=SONG_SHEET_ORIGINAL_TEXT_SIZE_MAX,
+        alias="originalTextSize",
+    )
+    layout_mode: SongSheetLayoutMode | None = Field(default=None, alias="layoutMode")
 
     @model_validator(mode="after")
     def reject_explicit_nulls(self) -> "SongSheetSettingsUpdateRequest":
@@ -51,6 +76,13 @@ class SongSheetSettingsUpdateRequest(BaseModel):
             and self.show_translation is None
         ):
             raise ValueError("showTranslation must be a boolean when provided.")
+        if (
+            "original_text_size" in self.model_fields_set
+            and self.original_text_size is None
+        ):
+            raise ValueError("originalTextSize must be an integer when provided.")
+        if "layout_mode" in self.model_fields_set and self.layout_mode is None:
+            raise ValueError("layoutMode must be a supported layout when provided.")
         return self
 
 
@@ -96,6 +128,8 @@ DEFAULT_APPLICATION_SETTINGS = ApplicationSettingsDocument(
         song_sheet=SongSheetSettings(
             show_romaji=True,
             show_translation=True,
+            original_text_size=SONG_SHEET_ORIGINAL_TEXT_SIZE_DEFAULT,
+            layout_mode=SONG_SHEET_LAYOUT_MODE_DEFAULT,
         ),
     ),
 )

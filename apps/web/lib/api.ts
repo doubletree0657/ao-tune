@@ -7,6 +7,7 @@ export type LyricsLearningDraftRequest = {
 };
 
 export type ApplicationTheme = "light" | "black" | "midnight" | "sky";
+export type SongSheetLayoutMode = "continuous" | "compact";
 
 export const applicationThemes: readonly ApplicationTheme[] = [
   "light",
@@ -15,9 +16,16 @@ export const applicationThemes: readonly ApplicationTheme[] = [
   "sky",
 ];
 
+export const songSheetOriginalTextSizeMin = 18;
+export const songSheetOriginalTextSizeMax = 36;
+export const songSheetOriginalTextSizeDefault = 30;
+export const songSheetLayoutModeDefault: SongSheetLayoutMode = "continuous";
+
 export type SongSheetSettings = {
   showRomaji: boolean;
   showTranslation: boolean;
+  originalTextSize: number;
+  layoutMode: SongSheetLayoutMode;
 };
 
 export type LyricsLearningSettings = {

@@ -52,7 +52,9 @@ Japanese Lyrics Learning Song Sheet display settings:
   "lyricsLearning": {
     "songSheet": {
       "showRomaji": true,
-      "showTranslation": true
+      "showTranslation": true,
+      "originalTextSize": 30,
+      "layoutMode": "continuous"
     }
   }
 }
@@ -65,12 +67,16 @@ authentication exists, user settings should be redesigned and bound to user
 accounts. The current application-level settings may remain as system defaults
 or installation defaults.
 
-The Japanese Lyrics Learning workspace opens saved artifacts into Full Song
-Sheet mode by default. The sheet renders only user-provided and persisted
-line-card content, ordered by `lineNumber`, with optional romaji and translation
-visibility controlled by application settings. Review cards remain the editing
-source for romaji, meaning, pronunciation notes, sing-along notes, and review
-state; the Song Sheet is a projection of the editable line-card state.
+The Japanese Lyrics Learning workspace opens saved artifacts into the persisted
+reading layout by default. Song view is the continuous lyrics reader; Compact
+view lays lyric groups left-to-right and then top-to-bottom to use wider
+viewports. The sheet renders only user-provided and persisted line-card content,
+ordered by `lineNumber`, with optional romaji and translation visibility,
+Japanese original-text size, and reading layout controlled by global
+application settings. Romaji and translation remain fixed-size in the current
+stage. Review cards remain the editing source for romaji, meaning,
+pronunciation notes, sing-along notes, and review state; the Song Sheet is a
+projection of the editable line-card state.
 
 ## Current Development Runtime
 

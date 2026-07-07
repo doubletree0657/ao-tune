@@ -59,7 +59,9 @@ def session_factory() -> async_sessionmaker[AsyncSession]:
                     "'lyricsLearning', jsonb_build_object("
                     "'songSheet', jsonb_build_object("
                     "'showRomaji', true, "
-                    "'showTranslation', true"
+                    "'showTranslation', true, "
+                    "'originalTextSize', 30, "
+                    "'layoutMode', 'continuous'"
                     "))), "
                     "updated_at = created_at "
                     "where id = 1"
@@ -268,6 +270,8 @@ def test_upgrade_preserves_existing_theme_and_downgrade_restores_preferences() -
                 "songSheet": {
                     "showRomaji": True,
                     "showTranslation": True,
+                    "originalTextSize": 30,
+                    "layoutMode": "continuous",
                 }
             },
         }
@@ -293,6 +297,8 @@ def test_get_returns_complete_default_settings(
     assert body["theme"] == "light"
     assert body["lyricsLearning"]["songSheet"]["showRomaji"] is True
     assert body["lyricsLearning"]["songSheet"]["showTranslation"] is True
+    assert body["lyricsLearning"]["songSheet"]["originalTextSize"] == 30
+    assert body["lyricsLearning"]["songSheet"]["layoutMode"] == "continuous"
     assert body["updatedAt"]
 
 
@@ -316,6 +322,8 @@ def test_patch_theme_preserves_song_sheet_settings(
     assert body["theme"] == "midnight"
     assert body["lyricsLearning"]["songSheet"]["showRomaji"] is False
     assert body["lyricsLearning"]["songSheet"]["showTranslation"] is True
+    assert body["lyricsLearning"]["songSheet"]["originalTextSize"] == 30
+    assert body["lyricsLearning"]["songSheet"]["layoutMode"] == "continuous"
 
 
 def test_patch_show_romaji_preserves_theme_and_translation(
@@ -335,6 +343,8 @@ def test_patch_show_romaji_preserves_theme_and_translation(
     assert body["theme"] == "black"
     assert body["lyricsLearning"]["songSheet"]["showRomaji"] is False
     assert body["lyricsLearning"]["songSheet"]["showTranslation"] is True
+    assert body["lyricsLearning"]["songSheet"]["originalTextSize"] == 30
+    assert body["lyricsLearning"]["songSheet"]["layoutMode"] == "continuous"
 
 
 def test_patch_show_translation_preserves_theme_and_romaji(
@@ -354,6 +364,101 @@ def test_patch_show_translation_preserves_theme_and_romaji(
     assert body["theme"] == "sky"
     assert body["lyricsLearning"]["songSheet"]["showRomaji"] is True
     assert body["lyricsLearning"]["songSheet"]["showTranslation"] is False
+    assert body["lyricsLearning"]["songSheet"]["originalTextSize"] == 30
+    assert body["lyricsLearning"]["songSheet"]["layoutMode"] == "continuous"
+
+
+def test_patch_font_size_preserves_theme_and_visibility(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    asyncio.run(patch("/api/settings", {"theme": "midnight"}, session_factory))
+    asyncio.run(
+        patch(
+            "/api/settings",
+            {
+                "lyricsLearning": {
+                    "songSheet": {
+                        "showRomaji": False,
+                        "showTranslation": False,
+                    }
+                }
+            },
+            session_factory,
+        )
+    )
+    response = asyncio.run(
+        patch(
+            "/api/settings",
+            {"lyricsLearning": {"songSheet": {"originalTextSize": 24}}},
+            session_factory,
+        )
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["theme"] == "midnight"
+    assert body["lyricsLearning"]["songSheet"] == {
+        "showRomaji": False,
+        "showTranslation": False,
+        "originalTextSize": 24,
+        "layoutMode": "continuous",
+    }
+
+
+def test_patch_layout_mode_preserves_font_size(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    asyncio.run(
+        patch(
+            "/api/settings",
+            {"lyricsLearning": {"songSheet": {"originalTextSize": 22}}},
+            session_factory,
+        )
+    )
+    response = asyncio.run(
+        patch(
+            "/api/settings",
+            {"lyricsLearning": {"songSheet": {"layoutMode": "compact"}}},
+            session_factory,
+        )
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["lyricsLearning"]["songSheet"]["originalTextSize"] == 22
+    assert body["lyricsLearning"]["songSheet"]["layoutMode"] == "compact"
+
+
+def test_patch_theme_preserves_all_song_sheet_options(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    asyncio.run(
+        patch(
+            "/api/settings",
+            {
+                "lyricsLearning": {
+                    "songSheet": {
+                        "showRomaji": False,
+                        "showTranslation": False,
+                        "originalTextSize": 18,
+                        "layoutMode": "compact",
+                    }
+                }
+            },
+            session_factory,
+        )
+    )
+    response = asyncio.run(patch("/api/settings", {"theme": "sky"}, session_factory))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["theme"] == "sky"
+    assert body["lyricsLearning"]["songSheet"] == {
+        "showRomaji": False,
+        "showTranslation": False,
+        "originalTextSize": 18,
+        "layoutMode": "compact",
+    }
 
 
 def test_sequential_independent_partial_updates_do_not_overwrite_each_other(
@@ -376,15 +481,33 @@ def test_sequential_independent_partial_updates_do_not_overwrite_each_other(
             session_factory,
         )
     )
+    size_response = asyncio.run(
+        patch(
+            "/api/settings",
+            {"lyricsLearning": {"songSheet": {"originalTextSize": 34}}},
+            session_factory,
+        )
+    )
+    layout_response = asyncio.run(
+        patch(
+            "/api/settings",
+            {"lyricsLearning": {"songSheet": {"layoutMode": "compact"}}},
+            session_factory,
+        )
+    )
 
     assert theme_response.status_code == 200
     assert romaji_response.status_code == 200
     assert translation_response.status_code == 200
-    body = translation_response.json()
+    assert size_response.status_code == 200
+    assert layout_response.status_code == 200
+    body = layout_response.json()
     assert body["theme"] == "midnight"
     assert body["lyricsLearning"]["songSheet"] == {
         "showRomaji": False,
         "showTranslation": False,
+        "originalTextSize": 34,
+        "layoutMode": "compact",
     }
 
 
@@ -405,6 +528,50 @@ def test_invalid_boolean_value_is_rejected(
         patch(
             "/api/settings",
             {"lyricsLearning": {"songSheet": {"showRomaji": "false"}}},
+            session_factory,
+        )
+    )
+
+    assert response.status_code == 422
+
+
+def test_invalid_font_size_values_are_rejected(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    too_small = asyncio.run(
+        patch(
+            "/api/settings",
+            {"lyricsLearning": {"songSheet": {"originalTextSize": 17}}},
+            session_factory,
+        )
+    )
+    too_large = asyncio.run(
+        patch(
+            "/api/settings",
+            {"lyricsLearning": {"songSheet": {"originalTextSize": 37}}},
+            session_factory,
+        )
+    )
+    non_integer = asyncio.run(
+        patch(
+            "/api/settings",
+            {"lyricsLearning": {"songSheet": {"originalTextSize": 24.5}}},
+            session_factory,
+        )
+    )
+
+    assert too_small.status_code == 422
+    assert too_large.status_code == 422
+    assert non_integer.status_code == 422
+
+
+def test_invalid_layout_mode_is_rejected(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    response = asyncio.run(
+        patch(
+            "/api/settings",
+            {"lyricsLearning": {"songSheet": {"layoutMode": "columns"}}},
             session_factory,
         )
     )
@@ -437,7 +604,9 @@ def test_no_additional_settings_row_can_be_created(
                             "'lyricsLearning', jsonb_build_object("
                             "'songSheet', jsonb_build_object("
                             "'showRomaji', true, "
-                            "'showTranslation', true"
+                            "'showTranslation', true, "
+                            "'originalTextSize', 30, "
+                            "'layoutMode', 'continuous'"
                             "))))"
                         )
                     )
@@ -464,6 +633,43 @@ def test_singleton_row_remains_id_one(
 
     assert response.status_code == 200
     assert asyncio.run(stored_id()) == 1
+
+
+def test_singleton_settings_row_remains_intact_after_song_sheet_updates(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    response = asyncio.run(
+        patch(
+            "/api/settings",
+            {
+                "lyricsLearning": {
+                    "songSheet": {
+                        "originalTextSize": 20,
+                        "layoutMode": "compact",
+                    }
+                }
+            },
+            session_factory,
+        )
+    )
+
+    async def stored_row() -> tuple[int, int, dict]:
+        async with session_factory() as session:
+            result = await session.execute(
+                text(
+                    "select id, count(*) over () as row_count, settings "
+                    "from application_settings"
+                )
+            )
+            row = result.one()
+            return row.id, row.row_count, row.settings
+
+    row_id, row_count, settings = asyncio.run(stored_row())
+    assert response.status_code == 200
+    assert row_id == 1
+    assert row_count == 1
+    assert settings["lyricsLearning"]["songSheet"]["originalTextSize"] == 20
+    assert settings["lyricsLearning"]["songSheet"]["layoutMode"] == "compact"
 
 
 def test_updated_at_changes_after_real_update(

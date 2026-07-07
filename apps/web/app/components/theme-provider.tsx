@@ -5,17 +5,23 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 
 import {
+  songSheetLayoutModeDefault,
+  songSheetOriginalTextSizeDefault,
+  songSheetOriginalTextSizeMax,
+  songSheetOriginalTextSizeMin,
   applicationThemes,
   getApplicationSettings,
   updateApplicationSettings,
   type ApplicationSettings,
   type ApplicationTheme,
   type SongSheetSettings,
+  type SongSheetLayoutMode,
 } from "@/lib/api";
 
 export const applicationSettingsCacheKey = "aotune.application-settings-cache.v1";
@@ -27,6 +33,8 @@ const defaultDisplaySettings: CachedDisplaySettings = {
     songSheet: {
       showRomaji: true,
       showTranslation: true,
+      originalTextSize: songSheetOriginalTextSizeDefault,
+      layoutMode: songSheetLayoutModeDefault,
     },
   },
 };
@@ -100,6 +108,19 @@ function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
 }
 
+function isSongSheetLayoutMode(value: unknown): value is SongSheetLayoutMode {
+  return value === "continuous" || value === "compact";
+}
+
+function isOriginalTextSize(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= songSheetOriginalTextSizeMin &&
+    value <= songSheetOriginalTextSizeMax
+  );
+}
+
 function validateCachedSettings(value: unknown): CachedDisplaySettings | null {
   if (typeof value !== "object" || value === null) {
     return null;
@@ -122,6 +143,12 @@ function validateCachedSettings(value: unknown): CachedDisplaySettings | null {
       songSheet: {
         showRomaji: songSheet.showRomaji,
         showTranslation: songSheet.showTranslation,
+        originalTextSize: isOriginalTextSize(songSheet.originalTextSize)
+          ? songSheet.originalTextSize
+          : songSheetOriginalTextSizeDefault,
+        layoutMode: isSongSheetLayoutMode(songSheet.layoutMode)
+          ? songSheet.layoutMode
+          : songSheetLayoutModeDefault,
       },
     },
   };
@@ -136,6 +163,8 @@ function displaySettingsFromResponse(
       songSheet: {
         showRomaji: settings.lyricsLearning.songSheet.showRomaji,
         showTranslation: settings.lyricsLearning.songSheet.showTranslation,
+        originalTextSize: settings.lyricsLearning.songSheet.originalTextSize,
+        layoutMode: settings.lyricsLearning.songSheet.layoutMode,
       },
     },
   };
@@ -205,9 +234,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     useState<ApplicationTheme>(currentTheme);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [isSavingTheme, setIsSavingTheme] = useState(false);
-  const [isSavingSongSheetSettings, setIsSavingSongSheetSettings] =
-    useState(false);
+  const [pendingSongSheetUpdates, setPendingSongSheetUpdates] = useState(0);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const songSheetUpdateRequestRef = useRef(0);
 
   useEffect(() => {
     applyTheme(currentTheme);
@@ -258,7 +287,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       songSheetSettings: settings.lyricsLearning.songSheet,
       isLoadingSettings,
       isSavingTheme,
-      isSavingSongSheetSettings,
+      isSavingSongSheetSettings: pendingSongSheetUpdates > 0,
       updateError,
       themes: themeOptions,
       clearUpdateError: () => setUpdateError(null),
@@ -292,10 +321,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         }
       },
       setSongSheetSettings: async (songSheetUpdate: Partial<SongSheetSettings>) => {
-        if (isSavingSongSheetSettings) {
-          return;
-        }
-
+        const requestId = songSheetUpdateRequestRef.current + 1;
+        songSheetUpdateRequestRef.current = requestId;
         const previousSettings = settings;
         const optimisticSettings = {
           ...settings,
@@ -308,7 +335,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         };
         setSettings(optimisticSettings);
         cacheDisplaySettings(optimisticSettings);
-        setIsSavingSongSheetSettings(true);
+        setPendingSongSheetUpdates((current) => current + 1);
         setUpdateError(null);
 
         try {
@@ -317,28 +344,33 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
               songSheet: songSheetUpdate,
             },
           });
+          if (requestId !== songSheetUpdateRequestRef.current) {
+            return;
+          }
           const nextSettings = displaySettingsFromResponse(response);
           setSettings(nextSettings);
           setCurrentTheme(nextSettings.theme);
           setPersistedTheme(nextSettings.theme);
           cacheDisplaySettings(nextSettings);
         } catch {
-          setSettings(previousSettings);
-          setCurrentTheme(previousSettings.theme);
-          cacheDisplaySettings(previousSettings);
-          setUpdateError(
-            "Song Sheet display settings could not be saved. Restored the previous display.",
-          );
+          if (requestId === songSheetUpdateRequestRef.current) {
+            setSettings(previousSettings);
+            setCurrentTheme(previousSettings.theme);
+            cacheDisplaySettings(previousSettings);
+            setUpdateError(
+              "Song Sheet display settings could not be saved. Restored the previous display.",
+            );
+          }
         } finally {
-          setIsSavingSongSheetSettings(false);
+          setPendingSongSheetUpdates((current) => Math.max(current - 1, 0));
         }
       },
     }),
     [
       currentTheme,
       isLoadingSettings,
-      isSavingSongSheetSettings,
       isSavingTheme,
+      pendingSongSheetUpdates,
       persistedTheme,
       settings,
       updateError,
