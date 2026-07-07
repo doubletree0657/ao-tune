@@ -1,14 +1,20 @@
 import type { LyricsLearningDraft, LyricsLineCard } from "@/lib/api";
+import { useApplicationSettings } from "@/app/components/theme-provider";
 
 import LineCardList from "./line-card-list";
 import SelectedLineCardEditor from "./selected-line-card-editor";
+import SongSheet from "./song-sheet";
 import styles from "../workspace.module.css";
+
+export type WorkspaceMode = "song" | "review";
 
 type AgentDraftArtifactProps = {
   draft: LyricsLearningDraft;
   hasLocalDraft: boolean;
   lineCards: LyricsLineCard[];
+  mode: WorkspaceMode;
   onClearLocalDraft: () => void;
+  onModeChange: (mode: WorkspaceMode) => void;
   onLineCardsChange: (lineCards: LyricsLineCard[]) => void;
   onSaveReviewEdits: () => void;
   onSelectedLineIndexChange: (index: number) => void;
@@ -27,19 +33,35 @@ function statusLabel(status: LyricsLearningDraft["status"]) {
   return "Generating";
 }
 
-function compactText(text: string | null, emptyText: string) {
-  if (!text?.trim()) {
-    return emptyText;
+function saveStateLabel(
+  reviewSaveState: AgentDraftArtifactProps["reviewSaveState"],
+  hasLocalDraft: boolean,
+) {
+  if (reviewSaveState === "saving") {
+    return "Saving edits";
   }
-  const preview = text.trim().split(/\r?\n/).slice(0, 6).join("\n");
-  return preview.length > 520 ? `${preview.slice(0, 520)}...` : preview;
+  if (reviewSaveState === "unsaved" || reviewSaveState === "error") {
+    return hasLocalDraft ? "Unsaved edits saved for recovery" : "Unsaved edits";
+  }
+  if (reviewSaveState === "saved") {
+    return "Saved";
+  }
+  return "Saved";
+}
+
+function shouldShowSaveState(
+  reviewSaveState: AgentDraftArtifactProps["reviewSaveState"],
+) {
+  return reviewSaveState !== "clean";
 }
 
 export default function AgentDraftArtifact({
   draft,
   hasLocalDraft,
   lineCards,
+  mode,
   onClearLocalDraft,
+  onModeChange,
   onLineCardsChange,
   onSaveReviewEdits,
   onSelectedLineIndexChange,
@@ -47,6 +69,12 @@ export default function AgentDraftArtifact({
   reviewSaveState,
   selectedLineIndex,
 }: AgentDraftArtifactProps) {
+  const {
+    songSheetSettings,
+    isSavingSongSheetSettings,
+    setSongSheetSettings,
+    updateError,
+  } = useApplicationSettings();
   const reviewedCount = lineCards.filter((card) => !card.needsReview).length;
   const needsReviewCount = lineCards.length - reviewedCount;
   const canSaveReviewEdits =
@@ -57,149 +85,199 @@ export default function AgentDraftArtifact({
     reviewSaveState !== "saving";
   const selectedIndex = lineCards[selectedLineIndex] ? selectedLineIndex : 0;
 
-  return (
-    <>
-      <section className={styles.lineNavigator} aria-labelledby="artifact-title">
-        <div className={styles.artifactHeader}>
-          <div className={styles.artifactTitleRow}>
-            <div>
-              <p className={styles.eyebrow}>Current artifact</p>
-              <h2 className={styles.artifactTitle} id="artifact-title">
-                {draft.songTitle.trim() || "Untitled song request"}
-              </h2>
-              <p className={styles.artist}>
-                {draft.artist.trim() || "Artist not provided"}
-              </p>
-            </div>
-            <span
-              className={
-                needsReviewCount > 0 ? styles.reviewPill : styles.donePill
-              }
-            >
-              {statusLabel(draft.status)}
-            </span>
-          </div>
+  function editLine(lineNumber: number) {
+    const nextIndex = lineCards.findIndex((card) => card.lineNumber === lineNumber);
+    if (nextIndex >= 0) {
+      onSelectedLineIndexChange(nextIndex);
+    }
+    onModeChange("review");
+  }
 
-          <dl className={styles.reviewStats} aria-label="Review progress">
-            <div>
-              <dt>Lines</dt>
-              <dd>{lineCards.length}</dd>
-            </div>
-            <div>
-              <dt>Reviewed</dt>
-              <dd>{reviewedCount}</dd>
-            </div>
-            <div>
-              <dt>Needs review</dt>
-              <dd>{needsReviewCount}</dd>
-            </div>
-          </dl>
+  return (
+    <section className={styles.workbench} aria-labelledby="artifact-title">
+      <header className={styles.workbenchHeader}>
+        <div className={styles.songIdentity}>
+          <h2 className={styles.artifactTitle} id="artifact-title">
+            {draft.songTitle.trim() || "Untitled song request"}
+          </h2>
+          <p className={styles.artist}>
+            {draft.artist.trim() || "Artist not provided"}
+          </p>
         </div>
 
-        {draft.generationError ? (
-          <p className={styles.error} role="status">
-            {draft.generationError}
-          </p>
-        ) : null}
-
-        <details className={styles.details}>
-          <summary>Artifact details and generation context</summary>
-          <div className={styles.detailsContent}>
-            <div className={styles.detailsGrid}>
-              <div className={`${styles.detailBlock} ${styles.detailBlockWide}`}>
-                <h4>Learning goal</h4>
-                <p>{draft.learningGoal}</p>
-              </div>
-              <div className={`${styles.detailBlock} ${styles.detailBlockWide}`}>
-                <h4>User-provided lyrics preview</h4>
-                <p lang="ja">
-                  {compactText(
-                    draft.lyricsText,
-                    "No lyrics text was stored with this artifact.",
-                  )}
-                </p>
-              </div>
-              <div className={`${styles.detailBlock} ${styles.detailBlockWide}`}>
-                <h4>Study notes</h4>
-                <p>
-                  {compactText(
-                    draft.studyNotes,
-                    "No study notes were stored with this artifact.",
-                  )}
-                </p>
-              </div>
-              <div className={styles.detailBlock}>
-                <h4>Provider</h4>
-                <p>
-                  {draft.providerMetadata.provider}
-                  {draft.providerMetadata.model
-                    ? ` / ${draft.providerMetadata.model}`
-                    : ""}
-                </p>
-              </div>
-              <div className={styles.detailBlock}>
-                <h4>Generation status</h4>
-                <p>{statusLabel(draft.status)}</p>
-              </div>
-            </div>
-
-            <div className={styles.detailBlock}>
-              <h4>Generated sections</h4>
-              <p>
-                {draft.generatedSections
-                  .map((section) => `${section.label}: ${section.status}`)
-                  .join("\n")}
-              </p>
-            </div>
+        <div className={styles.workbenchControls}>
+          <div className={styles.modeTabs} role="group" aria-label="View mode">
+            <button
+              aria-pressed={mode === "song"}
+              className={styles.modeButton}
+              onClick={() => onModeChange("song")}
+              type="button"
+            >
+              Song view
+            </button>
+            <button
+              aria-pressed={mode === "review"}
+              className={styles.modeButton}
+              onClick={() => onModeChange("review")}
+              type="button"
+            >
+              Review cards
+            </button>
           </div>
-        </details>
 
-        {lineCards.length > 0 ? (
-          <LineCardList
-            lineCards={lineCards}
-            onSelect={onSelectedLineIndexChange}
-            selectedLineIndex={selectedLineIndex}
-          />
-        ) : (
-          <p className={styles.message}>
-            No line cards were generated for this artifact.
-          </p>
-        )}
-      </section>
+          {mode === "song" ? (
+            <div
+              className={styles.toggleGroup}
+              aria-label="Song Sheet display options"
+            >
+              <label className={styles.toggleControl}>
+                <input
+                  checked={songSheetSettings.showRomaji}
+                  disabled={isSavingSongSheetSettings}
+                  onChange={(event) => {
+                    void setSongSheetSettings({
+                      showRomaji: event.target.checked,
+                    });
+                  }}
+                  type="checkbox"
+                />
+                <span>Romaji</span>
+              </label>
+              <label className={styles.toggleControl}>
+                <input
+                  checked={songSheetSettings.showTranslation}
+                  disabled={isSavingSongSheetSettings}
+                  onChange={(event) => {
+                    void setSongSheetSettings({
+                      showTranslation: event.target.checked,
+                    });
+                  }}
+                  type="checkbox"
+                />
+                <span>Translation</span>
+              </label>
+            </div>
+          ) : null}
 
-      {draft.agentOutput && lineCards.length > 0 ? (
-        <SelectedLineCardEditor
-          canSave={canSaveReviewEdits}
-          card={lineCards[selectedIndex]}
-          cardIndex={selectedIndex}
-          hasLocalDraft={hasLocalDraft}
-          onChange={(update) =>
-            onLineCardsChange(
-              lineCards.map((card, index) =>
-                index === selectedIndex ? { ...card, ...update } : card,
-              ),
-            )
-          }
-          onClearLocalDraft={onClearLocalDraft}
-          onMove={onSelectedLineIndexChange}
-          onSaveReviewEdits={onSaveReviewEdits}
-          reviewSaveError={reviewSaveError}
-          reviewSaveState={reviewSaveState}
-          totalCards={lineCards.length}
+          <div className={styles.saveCluster} aria-live="polite">
+            {shouldShowSaveState(reviewSaveState) ? (
+              <span
+                className={
+                  reviewSaveState === "error"
+                    ? styles.saveStateError
+                    : styles.saveStateText
+                }
+              >
+                {saveStateLabel(reviewSaveState, hasLocalDraft)}
+              </span>
+            ) : null}
+            {canSaveReviewEdits || reviewSaveState === "saving" ? (
+              <button
+                className={styles.primaryButton}
+                disabled={!canSaveReviewEdits}
+                onClick={onSaveReviewEdits}
+                type="button"
+              >
+                {reviewSaveState === "saving" ? "Saving..." : "Save edits"}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </header>
+
+      <div className={styles.workbenchStatus}>
+        <span>
+          {lineCards.length} lines
+          {lineCards.length > 0 ? ` / ${reviewedCount} reviewed` : ""}
+        </span>
+        <span>{statusLabel(draft.status)}</span>
+      </div>
+
+      {updateError ? (
+        <p className={styles.warning} role="status">
+          {updateError}
+        </p>
+      ) : null}
+
+      {reviewSaveError ? (
+        <p className={styles.error} role="status">
+          {reviewSaveError}
+        </p>
+      ) : null}
+
+      {mode === "song" ? (
+        <SongSheet
+          lineCards={lineCards}
+          onEditLine={editLine}
+          showRomaji={songSheetSettings.showRomaji}
+          showTranslation={songSheetSettings.showTranslation}
         />
       ) : (
-        <section className={styles.emptyWorkbench} aria-labelledby="pending-title">
-          <div className={styles.emptyWorkbenchInner}>
-            <p className={styles.eyebrow}>Awaiting line cards</p>
-            <h2 id="pending-title">No reviewable line cards are available yet.</h2>
-            <p>
-              This artifact exists, but no structured lyric cards were returned.
-              Check the generation context above or create a new draft with
-              user-provided lyrics text.
-            </p>
+        <div className={styles.reviewMode}>
+          <aside
+            className={styles.reviewRail}
+            aria-label="Generated lyric lines"
+          >
+            <div className={styles.reviewRailHeader}>
+              <strong>{needsReviewCount} need review</strong>
+              <span>{selectedIndex + 1} of {lineCards.length}</span>
+            </div>
+            {draft.generationError ? (
+              <p className={styles.error} role="status">
+                {draft.generationError}
+              </p>
+            ) : null}
+            {lineCards.length > 0 ? (
+              <LineCardList
+                lineCards={lineCards}
+                onSelect={onSelectedLineIndexChange}
+                selectedLineIndex={selectedLineIndex}
+              />
+            ) : (
+              <p className={styles.message}>
+                No line cards were generated for this artifact.
+              </p>
+            )}
+          </aside>
+
+          <div className={styles.reviewEditorSlot}>
+            {draft.agentOutput && lineCards.length > 0 ? (
+              <SelectedLineCardEditor
+                canSave={canSaveReviewEdits}
+                card={lineCards[selectedIndex]}
+                cardIndex={selectedIndex}
+                hasLocalDraft={hasLocalDraft}
+                onChange={(update) =>
+                  onLineCardsChange(
+                    lineCards.map((card, index) =>
+                      index === selectedIndex ? { ...card, ...update } : card,
+                    ),
+                  )
+                }
+                onClearLocalDraft={onClearLocalDraft}
+                onMove={onSelectedLineIndexChange}
+                onSaveReviewEdits={onSaveReviewEdits}
+                reviewSaveError={reviewSaveError}
+                reviewSaveState={reviewSaveState}
+                totalCards={lineCards.length}
+              />
+            ) : (
+              <section
+                className={styles.emptyWorkbench}
+                aria-labelledby="pending-title"
+              >
+                <div className={styles.emptyWorkbenchInner}>
+                  <h2 id="pending-title">No reviewable line cards are available.</h2>
+                  <p>
+                    This artifact exists, but no structured lyric cards were
+                    returned.
+                  </p>
+                </div>
+              </section>
+            )}
           </div>
-        </section>
+        </div>
       )}
-    </>
+    </section>
   );
 }

@@ -7,7 +7,7 @@ from alembic import context
 from app.config import Settings
 from app.db import Base
 from app.models import (
-    application_preferences,  # noqa: F401
+    application_settings,  # noqa: F401
     lyrics_learning,  # noqa: F401
 )
 

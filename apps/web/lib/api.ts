@@ -15,9 +15,26 @@ export const applicationThemes: readonly ApplicationTheme[] = [
   "sky",
 ];
 
-export type ApplicationPreferences = {
+export type SongSheetSettings = {
+  showRomaji: boolean;
+  showTranslation: boolean;
+};
+
+export type LyricsLearningSettings = {
+  songSheet: SongSheetSettings;
+};
+
+export type ApplicationSettings = {
   theme: ApplicationTheme;
+  lyricsLearning: LyricsLearningSettings;
   updatedAt: string;
+};
+
+export type ApplicationSettingsUpdate = {
+  theme?: ApplicationTheme;
+  lyricsLearning?: {
+    songSheet?: Partial<SongSheetSettings>;
+  };
 };
 
 export type GeneratedSection = {
@@ -118,10 +135,10 @@ export class LyricsLearningApiError extends AoTuneApiError {
   }
 }
 
-export class ApplicationPreferencesApiError extends AoTuneApiError {
+export class ApplicationSettingsApiError extends AoTuneApiError {
   constructor(message: string, status: number) {
     super(message, status);
-    this.name = "ApplicationPreferencesApiError";
+    this.name = "ApplicationSettingsApiError";
   }
 }
 
@@ -164,27 +181,27 @@ async function requestJson<T>(
   return (await response.json()) as T;
 }
 
-export async function getApplicationPreferences(): Promise<ApplicationPreferences> {
-  return requestJson<ApplicationPreferences>(
-    "/api/preferences",
+export async function getApplicationSettings(): Promise<ApplicationSettings> {
+  return requestJson<ApplicationSettings>(
+    "/api/settings",
     undefined,
-    ApplicationPreferencesApiError,
+    ApplicationSettingsApiError,
   );
 }
 
-export async function updateApplicationTheme(
-  theme: ApplicationTheme,
-): Promise<ApplicationPreferences> {
-  return requestJson<ApplicationPreferences>(
-    "/api/preferences",
+export async function updateApplicationSettings(
+  update: ApplicationSettingsUpdate,
+): Promise<ApplicationSettings> {
+  return requestJson<ApplicationSettings>(
+    "/api/settings",
     {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ theme }),
+      body: JSON.stringify(update),
     },
-    ApplicationPreferencesApiError,
+    ApplicationSettingsApiError,
   );
 }
 

@@ -11,12 +11,25 @@ import {
 
 import {
   applicationThemes,
-  getApplicationPreferences,
-  updateApplicationTheme,
+  getApplicationSettings,
+  updateApplicationSettings,
+  type ApplicationSettings,
   type ApplicationTheme,
+  type SongSheetSettings,
 } from "@/lib/api";
 
-export const themeCacheKey = "aotune.theme-cache";
+export const applicationSettingsCacheKey = "aotune.application-settings-cache.v1";
+export const legacyThemeCacheKey = "aotune.theme-cache";
+
+const defaultDisplaySettings: CachedDisplaySettings = {
+  theme: "light",
+  lyricsLearning: {
+    songSheet: {
+      showRomaji: true,
+      showTranslation: true,
+    },
+  },
+};
 
 export type ThemeOption = {
   theme: ApplicationTheme;
@@ -58,33 +71,99 @@ export const themeOptions: readonly ThemeOption[] = [
 ];
 
 type ThemeContextValue = {
+  settings: CachedDisplaySettings;
   currentTheme: ApplicationTheme;
   persistedTheme: ApplicationTheme;
-  isLoadingPreference: boolean;
-  isSavingPreference: boolean;
+  songSheetSettings: SongSheetSettings;
+  isLoadingSettings: boolean;
+  isSavingTheme: boolean;
+  isSavingSongSheetSettings: boolean;
   updateError: string | null;
   themes: readonly ThemeOption[];
   setTheme: (theme: ApplicationTheme) => Promise<void>;
+  setSongSheetSettings: (settings: Partial<SongSheetSettings>) => Promise<void>;
   clearUpdateError: () => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function isApplicationTheme(value: string | null): value is ApplicationTheme {
+type CachedDisplaySettings = Omit<ApplicationSettings, "updatedAt">;
+
+function isApplicationTheme(value: unknown): value is ApplicationTheme {
+  if (typeof value !== "string") {
+    return false;
+  }
   return applicationThemes.includes(value as ApplicationTheme);
 }
 
-function cachedTheme(): ApplicationTheme {
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === "boolean";
+}
+
+function validateCachedSettings(value: unknown): CachedDisplaySettings | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+
+  const candidate = value as Partial<CachedDisplaySettings>;
+  const songSheet = candidate.lyricsLearning?.songSheet;
+  if (
+    !isApplicationTheme(candidate.theme) ||
+    !songSheet ||
+    !isBoolean(songSheet.showRomaji) ||
+    !isBoolean(songSheet.showTranslation)
+  ) {
+    return null;
+  }
+
+  return {
+    theme: candidate.theme,
+    lyricsLearning: {
+      songSheet: {
+        showRomaji: songSheet.showRomaji,
+        showTranslation: songSheet.showTranslation,
+      },
+    },
+  };
+}
+
+function displaySettingsFromResponse(
+  settings: ApplicationSettings,
+): CachedDisplaySettings {
+  return {
+    theme: settings.theme,
+    lyricsLearning: {
+      songSheet: {
+        showRomaji: settings.lyricsLearning.songSheet.showRomaji,
+        showTranslation: settings.lyricsLearning.songSheet.showTranslation,
+      },
+    },
+  };
+}
+
+function cachedDisplaySettings(): CachedDisplaySettings {
   if (typeof window === "undefined") {
-    return "light";
+    return defaultDisplaySettings;
   }
 
   try {
-    const cachedValue = window.localStorage.getItem(themeCacheKey);
-    return isApplicationTheme(cachedValue) ? cachedValue : "light";
+    const cachedValue = window.localStorage.getItem(applicationSettingsCacheKey);
+    if (cachedValue) {
+      const parsed = validateCachedSettings(JSON.parse(cachedValue));
+      if (parsed) {
+        return parsed;
+      }
+    }
+
+    const legacyTheme = window.localStorage.getItem(legacyThemeCacheKey);
+    if (isApplicationTheme(legacyTheme)) {
+      return { ...defaultDisplaySettings, theme: legacyTheme };
+    }
   } catch {
-    return "light";
+    return defaultDisplaySettings;
   }
+
+  return defaultDisplaySettings;
 }
 
 function colorSchemeForTheme(theme: ApplicationTheme) {
@@ -99,20 +178,35 @@ function applyTheme(theme: ApplicationTheme) {
   document.documentElement.style.colorScheme = colorSchemeForTheme(theme);
 }
 
-function cacheTheme(theme: ApplicationTheme) {
+function cacheDisplaySettings(settings: CachedDisplaySettings) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
   try {
-    window.localStorage.setItem(themeCacheKey, theme);
+    window.localStorage.setItem(
+      applicationSettingsCacheKey,
+      JSON.stringify(settings),
+    );
+    window.localStorage.removeItem(legacyThemeCacheKey);
   } catch {
-    // The database preference remains authoritative.
+    // PostgreSQL remains authoritative.
   }
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [currentTheme, setCurrentTheme] = useState<ApplicationTheme>(cachedTheme);
+  const [settings, setSettings] = useState<CachedDisplaySettings>(
+    cachedDisplaySettings,
+  );
+  const [currentTheme, setCurrentTheme] = useState<ApplicationTheme>(
+    settings.theme,
+  );
   const [persistedTheme, setPersistedTheme] =
     useState<ApplicationTheme>(currentTheme);
-  const [isLoadingPreference, setIsLoadingPreference] = useState(true);
-  const [isSavingPreference, setIsSavingPreference] = useState(false);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+  const [isSavingTheme, setIsSavingTheme] = useState(false);
+  const [isSavingSongSheetSettings, setIsSavingSongSheetSettings] =
+    useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -122,32 +216,34 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
-    async function loadPreference() {
-      setIsLoadingPreference(true);
+    async function loadSettings() {
+      setIsLoadingSettings(true);
       try {
-        const preference = await getApplicationPreferences();
+        const response = await getApplicationSettings();
         if (!isMounted) {
           return;
         }
-        setCurrentTheme(preference.theme);
-        setPersistedTheme(preference.theme);
-        cacheTheme(preference.theme);
+        const nextSettings = displaySettingsFromResponse(response);
+        setSettings(nextSettings);
+        setCurrentTheme(nextSettings.theme);
+        setPersistedTheme(nextSettings.theme);
+        cacheDisplaySettings(nextSettings);
         setUpdateError(null);
       } catch {
         if (!isMounted) {
           return;
         }
         setUpdateError(
-          "Theme preference could not be loaded. Using the local display cache.",
+          "Application settings could not be loaded. Using the local display cache.",
         );
       } finally {
         if (isMounted) {
-          setIsLoadingPreference(false);
+          setIsLoadingSettings(false);
         }
       }
     }
 
-    void loadPreference();
+    void loadSettings();
 
     return () => {
       isMounted = false;
@@ -156,43 +252,95 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<ThemeContextValue>(
     () => ({
+      settings,
       currentTheme,
       persistedTheme,
-      isLoadingPreference,
-      isSavingPreference,
+      songSheetSettings: settings.lyricsLearning.songSheet,
+      isLoadingSettings,
+      isSavingTheme,
+      isSavingSongSheetSettings,
       updateError,
       themes: themeOptions,
       clearUpdateError: () => setUpdateError(null),
       setTheme: async (theme: ApplicationTheme) => {
-        if (theme === currentTheme || isSavingPreference) {
+        if (theme === currentTheme || isSavingTheme) {
           return;
         }
 
-        const previousTheme = persistedTheme;
+        const previousSettings = settings;
         setCurrentTheme(theme);
-        cacheTheme(theme);
-        setIsSavingPreference(true);
+        const optimisticSettings = { ...settings, theme };
+        setSettings(optimisticSettings);
+        cacheDisplaySettings(optimisticSettings);
+        setIsSavingTheme(true);
         setUpdateError(null);
 
         try {
-          const preference = await updateApplicationTheme(theme);
-          setCurrentTheme(preference.theme);
-          setPersistedTheme(preference.theme);
-          cacheTheme(preference.theme);
+          const response = await updateApplicationSettings({ theme });
+          const nextSettings = displaySettingsFromResponse(response);
+          setSettings(nextSettings);
+          setCurrentTheme(nextSettings.theme);
+          setPersistedTheme(nextSettings.theme);
+          cacheDisplaySettings(nextSettings);
         } catch {
-          setCurrentTheme(previousTheme);
-          cacheTheme(previousTheme);
+          setSettings(previousSettings);
+          setCurrentTheme(previousSettings.theme);
+          cacheDisplaySettings(previousSettings);
           setUpdateError("Theme could not be saved. Restored the previous theme.");
         } finally {
-          setIsSavingPreference(false);
+          setIsSavingTheme(false);
+        }
+      },
+      setSongSheetSettings: async (songSheetUpdate: Partial<SongSheetSettings>) => {
+        if (isSavingSongSheetSettings) {
+          return;
+        }
+
+        const previousSettings = settings;
+        const optimisticSettings = {
+          ...settings,
+          lyricsLearning: {
+            songSheet: {
+              ...settings.lyricsLearning.songSheet,
+              ...songSheetUpdate,
+            },
+          },
+        };
+        setSettings(optimisticSettings);
+        cacheDisplaySettings(optimisticSettings);
+        setIsSavingSongSheetSettings(true);
+        setUpdateError(null);
+
+        try {
+          const response = await updateApplicationSettings({
+            lyricsLearning: {
+              songSheet: songSheetUpdate,
+            },
+          });
+          const nextSettings = displaySettingsFromResponse(response);
+          setSettings(nextSettings);
+          setCurrentTheme(nextSettings.theme);
+          setPersistedTheme(nextSettings.theme);
+          cacheDisplaySettings(nextSettings);
+        } catch {
+          setSettings(previousSettings);
+          setCurrentTheme(previousSettings.theme);
+          cacheDisplaySettings(previousSettings);
+          setUpdateError(
+            "Song Sheet display settings could not be saved. Restored the previous display.",
+          );
+        } finally {
+          setIsSavingSongSheetSettings(false);
         }
       },
     }),
     [
       currentTheme,
-      isLoadingPreference,
-      isSavingPreference,
+      isLoadingSettings,
+      isSavingSongSheetSettings,
+      isSavingTheme,
       persistedTheme,
+      settings,
       updateError,
     ],
   );
@@ -206,4 +354,8 @@ export function useTheme() {
     throw new Error("useTheme must be used within ThemeProvider.");
   }
   return value;
+}
+
+export function useApplicationSettings() {
+  return useTheme();
 }

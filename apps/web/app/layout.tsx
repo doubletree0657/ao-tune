@@ -23,9 +23,27 @@ export default function RootLayout({
             __html: `
 (function () {
   try {
-    var key = "aotune.theme-cache";
-    var theme = window.localStorage.getItem(key);
+    var key = "aotune.application-settings-cache.v1";
+    var legacyKey = "aotune.theme-cache";
+    var cached = window.localStorage.getItem(key);
     var allowed = { light: true, black: true, midnight: true, sky: true };
+    var theme = "light";
+    if (cached) {
+      var parsed = JSON.parse(cached);
+      if (
+        parsed &&
+        allowed[parsed.theme] &&
+        parsed.lyricsLearning &&
+        parsed.lyricsLearning.songSheet &&
+        typeof parsed.lyricsLearning.songSheet.showRomaji === "boolean" &&
+        typeof parsed.lyricsLearning.songSheet.showTranslation === "boolean"
+      ) {
+        theme = parsed.theme;
+      }
+    } else {
+      var legacyTheme = window.localStorage.getItem(legacyKey);
+      if (allowed[legacyTheme]) theme = legacyTheme;
+    }
     if (!allowed[theme]) theme = "light";
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme =

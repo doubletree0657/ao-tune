@@ -28,22 +28,6 @@ function confidenceLabel(confidence: number | null) {
     : `Confidence ${Math.round(confidence * 100)}%`;
 }
 
-function saveStateLabel(reviewSaveState: ReviewSaveState) {
-  if (reviewSaveState === "clean") {
-    return "Saved";
-  }
-  if (reviewSaveState === "unsaved") {
-    return "Unsaved edits";
-  }
-  if (reviewSaveState === "saving") {
-    return "Saving";
-  }
-  if (reviewSaveState === "saved") {
-    return "Saved just now";
-  }
-  return "Save failed";
-}
-
 function saveStateDescription(
   reviewSaveState: ReviewSaveState,
   hasLocalDraft: boolean,
@@ -79,28 +63,20 @@ export default function SelectedLineCardEditor({
 
   return (
     <section className={styles.editor} aria-labelledby="selected-line-title">
-      <div className={styles.panelHeader}>
-        <div>
-          <p className={styles.eyebrow}>Selected line</p>
-          <h2 className={styles.panelTitle} id="selected-line-title">
-            Line {card.lineNumber}
-          </h2>
-          <p className={styles.panelMeta}>
-            {cardIndex + 1} of {totalCards}
+      <div className={styles.editorTop}>
+        <div className={styles.sourceBlock}>
+          <div className={styles.sourceLabel}>
+            <h3 id="selected-line-title">Line {card.lineNumber}</h3>
+            <span className={styles.neutralPill}>
+              {confidenceLabel(card.confidence)}
+            </span>
+          </div>
+          <p className={styles.originalText} lang="ja">
+            {card.originalText}
           </p>
         </div>
-        <span className={card.needsReview ? styles.reviewPill : styles.donePill}>
-          {card.needsReview ? "Needs review" : "Reviewed"}
-        </span>
-      </div>
 
-      <footer className={styles.editorFooter}>
-        <div className={styles.saveState} aria-live="polite">
-          <strong>{saveStateLabel(reviewSaveState)}</strong>
-          <p>{saveStateDescription(reviewSaveState, hasLocalDraft, reviewSaveError)}</p>
-        </div>
-
-        <div className={styles.reviewActions}>
+        <div className={styles.reviewActions} aria-label="Review controls">
           <button
             className={styles.ghostButton}
             disabled={cardIndex === 0}
@@ -124,39 +100,49 @@ export default function SelectedLineCardEditor({
           >
             {card.needsReview ? "Mark reviewed" : "Mark needs review"}
           </button>
-          <button
-            className={styles.primaryButton}
-            disabled={!canSave}
-            onClick={onSaveReviewEdits}
-            type="button"
-          >
-            {reviewSaveState === "saving" ? "Saving..." : "Save"}
-          </button>
-          <button
-            className={styles.ghostButton}
-            disabled={!hasLocalDraft}
-            onClick={onClearLocalDraft}
-            type="button"
-          >
-            Clear recovery
-          </button>
+          {canSave || reviewSaveState === "saving" ? (
+            <button
+              className={styles.primaryButton}
+              disabled={!canSave}
+              onClick={onSaveReviewEdits}
+              type="button"
+            >
+              {reviewSaveState === "saving" ? "Saving..." : "Save"}
+            </button>
+          ) : null}
+          {hasLocalDraft ? (
+            <button
+              className={styles.ghostButton}
+              onClick={onClearLocalDraft}
+              type="button"
+            >
+              Clear recovery
+            </button>
+          ) : null}
         </div>
-      </footer>
+
+        {hasLocalDraft || reviewSaveError ? (
+          <div className={styles.saveState} aria-live="polite">
+            <strong>{reviewSaveError ? "Save failed" : "Local recovery"}</strong>
+            <p>
+              {saveStateDescription(
+                reviewSaveState,
+                hasLocalDraft,
+                reviewSaveError,
+              )}
+            </p>
+          </div>
+        ) : null}
+      </div>
 
       <div className={styles.editorScroll}>
-        <div className={styles.sourceBlock}>
-          <div className={styles.sourceLabel}>
-            <span>Original Japanese - read only</span>
-            <span className={styles.neutralPill}>
-              {confidenceLabel(card.confidence)}
+        <div className={styles.editorFields}>
+          <div className={styles.reviewToggleRow}>
+            <span className={card.needsReview ? styles.reviewPill : styles.donePill}>
+              {card.needsReview ? "Needs review" : "Reviewed"}
             </span>
           </div>
-          <p className={styles.originalText} lang="ja">
-            {card.originalText}
-          </p>
-        </div>
 
-        <div className={styles.editorFields}>
           <EditableLearningField
             id={`line-${cardIndex}-romaji`}
             label="Romaji"

@@ -41,12 +41,36 @@ validated becomes a reviewable artifact with a controlled error message. Route
 handlers should remain thin, with domain logic moved into focused services only
 when that logic exists.
 
-Application preferences are currently installation-global. The singleton
-`application_preferences` table stores the selected theme for all browsers using
-the same database. The frontend may use `localStorage` only as a pre-paint
-display cache; PostgreSQL remains authoritative. When authentication exists,
-per-user preferences should be modeled separately, with the singleton preference
-remaining available as a system default or fallback.
+Application settings are currently installation-global. The singleton
+`application_settings` table stores one row with `id = 1` and a validated JSONB
+`settings` document. The current document contains the selected theme and
+Japanese Lyrics Learning Song Sheet display settings:
+
+```json
+{
+  "theme": "light",
+  "lyricsLearning": {
+    "songSheet": {
+      "showRomaji": true,
+      "showTranslation": true
+    }
+  }
+}
+```
+
+All browsers connected to the same database share these settings. The frontend
+may use `localStorage` only as a versioned display cache for immediate rendering;
+PostgreSQL remains authoritative and is reconciled after startup. When
+authentication exists, user settings should be redesigned and bound to user
+accounts. The current application-level settings may remain as system defaults
+or installation defaults.
+
+The Japanese Lyrics Learning workspace opens saved artifacts into Full Song
+Sheet mode by default. The sheet renders only user-provided and persisted
+line-card content, ordered by `lineNumber`, with optional romaji and translation
+visibility controlled by application settings. Review cards remain the editing
+source for romaji, meaning, pronunciation notes, sing-along notes, and review
+state; the Song Sheet is a projection of the editable line-card state.
 
 ## Current Development Runtime
 

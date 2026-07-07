@@ -20,6 +20,7 @@ import type {
 } from "@/lib/api";
 
 import AgentDraftArtifact from "./components/agent-draft-artifact";
+import type { WorkspaceMode } from "./components/agent-draft-artifact";
 import AgentRequestForm from "./components/agent-request-form";
 import ArtifactLibrary from "./components/artifact-library";
 import type { SongRequest } from "./components/types";
@@ -186,6 +187,7 @@ export default function SongAgentRequest() {
   const [editableLineCards, setEditableLineCards] = useState<LyricsLineCard[]>([]);
   const [selectedLineIndex, setSelectedLineIndex] = useState(0);
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("song");
   const [artifactSummaries, setArtifactSummaries] = useState<
     LyricsLearningDraftSummary[]
   >([]);
@@ -226,6 +228,7 @@ export default function SongAgentRequest() {
           ),
         );
         setReviewSaveState(localDraft.draft.agentOutput ? "unsaved" : "clean");
+        setWorkspaceMode("song");
       }
       setHasLocalDraft(true);
     }
@@ -367,6 +370,7 @@ export default function SongAgentRequest() {
     setEditableLineCards(responseLineCards);
     setSelectedLineIndex(0);
     setSelectedDraftId(response.id);
+    setWorkspaceMode("song");
     setReviewSaveState("clean");
     setReviewSaveError(null);
   }
@@ -538,6 +542,7 @@ export default function SongAgentRequest() {
     setEditableLineCards([]);
     setSelectedLineIndex(0);
     setSelectedDraftId(null);
+    setWorkspaceMode("song");
     setHasLocalDraft(false);
     setReviewSaveState("clean");
     setReviewSaveError(null);
@@ -595,7 +600,9 @@ export default function SongAgentRequest() {
             draft={draft}
             hasLocalDraft={hasLocalDraft}
             lineCards={editableLineCards}
+            mode={workspaceMode}
             onClearLocalDraft={clearLocalDraft}
+            onModeChange={setWorkspaceMode}
             onLineCardsChange={updateLineCards}
             onSaveReviewEdits={() => void saveReviewEdits()}
             onSelectedLineIndexChange={setSelectedLineIndex}

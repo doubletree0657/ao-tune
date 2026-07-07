@@ -86,20 +86,36 @@ Run migrations before starting the API:
 uv run alembic upgrade head
 ```
 
-## Application Preferences
+## Application Settings
 
-AoTune stores the current application theme in PostgreSQL. The current
+AoTune stores application display settings in PostgreSQL. The current
 implementation is application-global because user accounts do not exist yet: all
-browsers connected to the same database share the selected theme.
+browsers connected to the same database share the selected theme and Japanese
+Lyrics Learning Song Sheet visibility settings.
 
-The `application_preferences` table is a singleton table seeded by Alembic with
-`id = 1` and `theme = light`. Database constraints keep the row ID fixed to `1`
-and allow only `light`, `black`, `midnight`, or `sky`.
+The `application_settings` table is a singleton table seeded by Alembic with
+`id = 1`. Database constraints keep the row ID fixed to `1` and require
+`settings` to be a JSON object. The API validates known settings with typed
+schemas and does not expose arbitrary JSON writes.
 
-Read the current preference:
+Current JSONB document:
+
+```json
+{
+  "theme": "light",
+  "lyricsLearning": {
+    "songSheet": {
+      "showRomaji": true,
+      "showTranslation": true
+    }
+  }
+}
+```
+
+Read the current settings:
 
 ```bash
-curl http://localhost:8000/api/preferences
+curl http://localhost:8000/api/settings
 ```
 
 Example response:
@@ -107,6 +123,12 @@ Example response:
 ```json
 {
   "theme": "light",
+  "lyricsLearning": {
+    "songSheet": {
+      "showRomaji": true,
+      "showTranslation": true
+    }
+  },
   "updatedAt": "2026-07-02T00:00:00Z"
 }
 ```
@@ -114,16 +136,37 @@ Example response:
 Update the theme:
 
 ```bash
-curl -X PATCH http://localhost:8000/api/preferences \
+curl -X PATCH http://localhost:8000/api/settings \
   -H "Content-Type: application/json" \
   -d '{"theme": "midnight"}'
 ```
 
-The frontend may keep `aotune.theme-cache` in `localStorage` only as a display
-cache to apply the last known theme before first paint. PostgreSQL remains the
-authoritative preference source. A future authenticated implementation should
-introduce per-user preferences; the singleton row can remain as the system
-default or fallback.
+Update one Song Sheet option without replacing unrelated settings:
+
+```bash
+curl -X PATCH http://localhost:8000/api/settings \
+  -H "Content-Type: application/json" \
+  -d '{"lyricsLearning":{"songSheet":{"showTranslation":false}}}'
+```
+
+PATCH requests are partial. The backend locks the singleton row, validates the
+stored JSON document, merges only provided fields with the latest database
+value, updates `updated_at` when a real setting changes, and preserves unrelated
+settings. Unsupported themes, non-boolean Song Sheet values, unknown fields, and
+invalid nested structures are rejected.
+
+The frontend may keep `aotune.application-settings-cache.v1` in `localStorage`
+only as a display cache to apply the last known theme and Song Sheet visibility
+before first paint. PostgreSQL remains the authoritative settings source and is
+reconciled after startup. A future authenticated implementation should redesign
+settings as account-bound user settings; the singleton row can remain as a
+system default or installation default.
+
+The Japanese Lyrics Learning workspace opens a selected artifact into Full Song
+Sheet view by default. The sheet displays only user-provided lyrics content and
+persisted line-card fields ordered by `lineNumber`; it does not fetch,
+reconstruct, or infer copyrighted lyrics. Review cards remain the editing source
+for line-card romaji, meaning, notes, and review state.
 
 `AOTUNE_APP_ENV` accepts `test`, `development`, or `production`; the default is
 `development`. `AOTUNE_AGENT_PROVIDER` accepts `auto`, `fake`, or

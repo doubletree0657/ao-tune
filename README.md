@@ -136,6 +136,12 @@ status, provider/model, line-card counts, review counts, and timestamps. The web
 workspace uses this list to open saved artifacts, edit line cards, save changes,
 and refresh the selected artifact in the library.
 
+Application display settings are available through `GET /api/settings` and
+partial `PATCH /api/settings`. PostgreSQL stores the singleton
+`application_settings` row for the whole local installation, including theme and
+Japanese Lyrics Learning Song Sheet visibility settings. `localStorage` is only
+a display cache; the database remains authoritative.
+
 ### Frontend
 
 ```bash

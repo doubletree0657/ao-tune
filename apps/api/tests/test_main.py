@@ -223,8 +223,8 @@ def test_lyrics_learning_draft_allows_local_frontend_origin() -> None:
     assert "content-type" in response.headers["access-control-allow-headers"].lower()
 
 
-def test_preferences_allows_local_frontend_patch() -> None:
-    response = asyncio.run(options("/api/preferences", method="PATCH"))
+def test_settings_allows_local_frontend_patch() -> None:
+    response = asyncio.run(options("/api/settings", method="PATCH"))
 
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == (

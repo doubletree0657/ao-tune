@@ -38,8 +38,8 @@ function CheckIcon() {
 export default function ThemeSelector() {
   const {
     currentTheme,
-    isLoadingPreference,
-    isSavingPreference,
+    isLoadingSettings,
+    isSavingTheme,
     updateError,
     themes,
     setTheme,
@@ -82,7 +82,7 @@ export default function ThemeSelector() {
         aria-haspopup="menu"
         aria-label={`Theme: ${currentOption?.label ?? currentTheme}`}
         className={styles.themeButton}
-        disabled={isSavingPreference}
+        disabled={isSavingTheme}
         onClick={() => {
           clearUpdateError();
           setIsOpen((current) => !current);
@@ -110,9 +110,9 @@ export default function ThemeSelector() {
           <div className={styles.themeMenuHeader}>
             <strong>Theme</strong>
             <span>
-              {isLoadingPreference
-                ? "Loading preference"
-                : isSavingPreference
+              {isLoadingSettings
+                ? "Loading settings"
+                : isSavingTheme
                   ? "Saving"
                   : "Stored in PostgreSQL"}
             </span>
@@ -125,7 +125,7 @@ export default function ThemeSelector() {
                 <button
                   aria-checked={isSelected}
                   className={styles.themeOption}
-                  disabled={isSavingPreference}
+                  disabled={isSavingTheme}
                   key={option.theme}
                   onClick={() => {
                     void setTheme(option.theme);

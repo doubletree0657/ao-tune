@@ -11,7 +11,7 @@ from app.agents.lyrics_learning_provider_factory import (
     resolve_lyrics_learning_agent_provider,
 )
 from app.api.routes.lyrics_learning import router as lyrics_learning_router
-from app.api.routes.preferences import router as preferences_router
+from app.api.routes.settings import router as settings_router
 from app.config import Settings
 
 logger = logging.getLogger("uvicorn.error")
@@ -99,7 +99,7 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 app.include_router(lyrics_learning_router)
-app.include_router(preferences_router)
+app.include_router(settings_router)
 
 
 @app.get("/health", response_model=HealthResponse)
