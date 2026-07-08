@@ -1,12 +1,14 @@
 import type { LyricsLineCard } from "@/lib/api";
-import {
-  songSheetOriginalTextSizeMax,
-  songSheetOriginalTextSizeMin,
-  type SongSheetLayoutMode,
-} from "@/lib/api";
+import { type SongSheetLayoutMode } from "@/lib/api";
 import type { CSSProperties } from "react";
 
 import styles from "../workspace.module.css";
+import {
+  densityValue,
+  lyricPhraseDisplay,
+  sortedLineCards,
+  type LyricPhraseDisplayPart,
+} from "./song-sheet-logic";
 
 type SongSheetProps = {
   layoutMode: SongSheetLayoutMode;
@@ -31,21 +33,6 @@ type SongSheetStyle = CSSProperties & {
   "--song-singalong-row-gap": string;
   "--song-singalong-padding-inline": string;
 };
-
-function sortedLineCards(lineCards: LyricsLineCard[]) {
-  return [...lineCards].sort((first, second) => first.lineNumber - second.lineNumber);
-}
-
-function densityValue(originalTextSize: number) {
-  const boundedSize = Math.min(
-    Math.max(originalTextSize, songSheetOriginalTextSizeMin),
-    songSheetOriginalTextSizeMax,
-  );
-  return (
-    (boundedSize - songSheetOriginalTextSizeMin) /
-    (songSheetOriginalTextSizeMax - songSheetOriginalTextSizeMin)
-  );
-}
 
 function remValue(minimum: number, maximum: number, density: number) {
   return `${(minimum + (maximum - minimum) * density).toFixed(3)}rem`;
@@ -87,6 +74,11 @@ function LyricPhrase({
   showRomaji,
   showTranslation,
 }: LyricGroupProps) {
+  const display = lyricPhraseDisplay(card, {
+    layoutMode,
+    showRomaji,
+    showTranslation,
+  });
   const buttonClassName =
     layoutMode === "compact"
       ? `${styles.songLineButton} ${styles.compactLineButton}`
@@ -97,38 +89,42 @@ function LyricPhrase({
     layoutMode === "sing_along"
       ? `${styles.songLineText} ${styles.singAlongLineText}`
       : styles.songLineText;
-  const shouldShowMissingValues = layoutMode !== "sing_along";
+
+  function partClassName(part: LyricPhraseDisplayPart) {
+    if (part.kind === "romaji") {
+      return styles.songRomaji;
+    }
+    if (part.kind === "translation") {
+      return styles.songTranslation;
+    }
+    if (part.kind === "missing") {
+      return styles.songMissing;
+    }
+    return styles.songJapanese;
+  }
 
   return (
     <button
-      aria-label={`Edit lyric line ${card.lineNumber}`}
+      aria-label={`Edit lyric line ${display.activationLineNumber}`}
       className={buttonClassName}
-      onClick={() => onEditLine(card.lineNumber)}
+      onClick={() => onEditLine(display.activationLineNumber)}
       type="button"
     >
-      {layoutMode === "sing_along" ? null : (
+      {display.showLineNumber ? (
         <span className={styles.songLineNumber} aria-hidden="true">
           {card.lineNumber}
         </span>
-      )}
+      ) : null}
       <span className={textClassName}>
-        {showRomaji ? (
-          card.romaji?.trim() ? (
-            <span className={styles.songRomaji}>{card.romaji}</span>
-          ) : shouldShowMissingValues ? (
-            <span className={styles.songMissing}>Romaji not set</span>
-          ) : null
-        ) : null}
-        <span className={styles.songJapanese} lang="ja">
-          {card.originalText}
-        </span>
-        {showTranslation ? (
-          card.meaning?.trim() ? (
-            <span className={styles.songTranslation}>{card.meaning}</span>
-          ) : shouldShowMissingValues ? (
-            <span className={styles.songMissing}>Translation not set</span>
-          ) : null
-        ) : null}
+        {display.parts.map((part) => (
+          <span
+            className={partClassName(part)}
+            key={`${part.kind}-${part.text}`}
+            lang={part.kind === "original" ? "ja" : undefined}
+          >
+            {part.text}
+          </span>
+        ))}
       </span>
     </button>
   );

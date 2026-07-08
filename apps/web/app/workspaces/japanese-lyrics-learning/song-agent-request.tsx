@@ -18,13 +18,16 @@ import type {
   LyricsLearningDraftSummary,
   LyricsLearningDraftUpdateRequest,
   LyricsLineCard,
-  SongSheetLayoutMode,
 } from "@/lib/api";
 
 import AgentDraftArtifact from "./components/agent-draft-artifact";
-import type { WorkspaceMode } from "./components/agent-draft-artifact";
 import AgentRequestForm from "./components/agent-request-form";
 import ArtifactLibrary from "./components/artifact-library";
+import {
+  readingModeForLayoutMode,
+  type ReadingWorkspaceMode,
+  type WorkspaceMode,
+} from "./components/reading-mode-logic";
 import type { SongRequest } from "./components/types";
 import styles from "./workspace.module.css";
 
@@ -181,19 +184,9 @@ function wait(milliseconds: number) {
   });
 }
 
-function workspaceModeFromLayout(layoutMode: SongSheetLayoutMode): WorkspaceMode {
-  if (layoutMode === "compact") {
-    return "overview";
-  }
-  if (layoutMode === "sing_along") {
-    return "sing_along";
-  }
-  return "reader";
-}
-
 export default function SongAgentRequest() {
   const { songSheetSettings } = useApplicationSettings();
-  const persistedReadingMode = workspaceModeFromLayout(
+  const persistedReadingMode = readingModeForLayoutMode(
     songSheetSettings.layoutMode,
   );
   const [request, setRequest] = useState<SongRequest>(defaultRequest);
@@ -205,6 +198,8 @@ export default function SongAgentRequest() {
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
   const [workspaceMode, setWorkspaceMode] =
     useState<WorkspaceMode>(persistedReadingMode);
+  const [readingModeBeforeEditor, setReadingModeBeforeEditor] =
+    useState<ReadingWorkspaceMode>(persistedReadingMode);
   const [artifactSummaries, setArtifactSummaries] = useState<
     LyricsLearningDraftSummary[]
   >([]);
@@ -250,6 +245,7 @@ export default function SongAgentRequest() {
         );
         setReviewSaveState(localDraft.draft.agentOutput ? "unsaved" : "clean");
         setWorkspaceMode(persistedReadingMode);
+        setReadingModeBeforeEditor(persistedReadingMode);
       }
       setHasLocalDraft(true);
     }
@@ -259,6 +255,7 @@ export default function SongAgentRequest() {
   useEffect(() => {
     if (workspaceMode !== "editor" && workspaceMode !== persistedReadingMode) {
       setWorkspaceMode(persistedReadingMode);
+      setReadingModeBeforeEditor(persistedReadingMode);
     }
   }, [persistedReadingMode, workspaceMode]);
 
@@ -398,6 +395,7 @@ export default function SongAgentRequest() {
     setSelectedLineIndex(0);
     setSelectedDraftId(response.id);
     setWorkspaceMode(persistedReadingMode);
+    setReadingModeBeforeEditor(persistedReadingMode);
     setReviewSaveState("clean");
     setReviewSaveError(null);
   }
@@ -570,6 +568,7 @@ export default function SongAgentRequest() {
     setSelectedLineIndex(0);
     setSelectedDraftId(null);
     setWorkspaceMode(persistedReadingMode);
+    setReadingModeBeforeEditor(persistedReadingMode);
     setHasLocalDraft(false);
     setReviewSaveState("clean");
     setReviewSaveError(null);
@@ -609,6 +608,19 @@ export default function SongAgentRequest() {
   const hasSelectedArtifact =
     selectedDraftId !== null && draft.id !== initialArtifact.id;
 
+  function changeWorkspaceMode(nextMode: WorkspaceMode) {
+    if (nextMode === "editor") {
+      if (workspaceMode !== "editor") {
+        setReadingModeBeforeEditor(workspaceMode);
+      }
+      setWorkspaceMode("editor");
+      return;
+    }
+
+    setReadingModeBeforeEditor(nextMode);
+    setWorkspaceMode(nextMode);
+  }
+
   return (
     <>
       <div className={styles.workspaceShell}>
@@ -629,12 +641,13 @@ export default function SongAgentRequest() {
             lineCards={editableLineCards}
             mode={workspaceMode}
             onClearLocalDraft={clearLocalDraft}
-            onModeChange={setWorkspaceMode}
+            onModeChange={changeWorkspaceMode}
             onLineCardsChange={updateLineCards}
             onSaveReviewEdits={() => void saveReviewEdits()}
             onSelectedLineIndexChange={setSelectedLineIndex}
             reviewSaveError={reviewSaveError}
             reviewSaveState={reviewSaveState}
+            readingModeBeforeEditor={readingModeBeforeEditor}
             selectedLineIndex={selectedLineIndex}
           />
         ) : (

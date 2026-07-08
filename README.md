@@ -166,6 +166,7 @@ uv run ruff check .
 
 cd ../web
 npm run typecheck
+npm test
 npm run build
 ```
 

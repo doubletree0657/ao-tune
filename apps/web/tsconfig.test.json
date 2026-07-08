@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "noEmit": false,
+    "outDir": ".test-build",
+    "rootDir": ".",
+    "tsBuildInfoFile": ".test-build/tsconfig.test.tsbuildinfo"
+  },
+  "include": [
+    "app/components/application-settings-cache.ts",
+    "app/workspaces/japanese-lyrics-learning/components/reading-mode-logic.ts",
+    "app/workspaces/japanese-lyrics-learning/components/song-sheet-logic.ts",
+    "lib/api.ts",
+    "tests/**/*.test.ts"
+  ]
+}

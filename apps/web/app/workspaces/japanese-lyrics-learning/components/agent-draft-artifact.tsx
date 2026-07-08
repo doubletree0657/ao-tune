@@ -1,5 +1,4 @@
 import type { LyricsLearningDraft, LyricsLineCard } from "@/lib/api";
-import type { SongSheetLayoutMode } from "@/lib/api";
 import { useApplicationSettings } from "@/app/components/theme-provider";
 
 import JapaneseTextSizeControl from "./japanese-text-size-control";
@@ -7,9 +6,14 @@ import LineCardList from "./line-card-list";
 import SelectedLineCardEditor from "./selected-line-card-editor";
 import SongSheet from "./song-sheet";
 import styles from "../workspace.module.css";
+import {
+  layoutModeForReadingMode,
+  modeAfterEditor,
+  type ReadingWorkspaceMode,
+  type WorkspaceMode,
+} from "./reading-mode-logic";
 
-export type WorkspaceMode = "reader" | "overview" | "sing_along" | "editor";
-type ReadingWorkspaceMode = Exclude<WorkspaceMode, "editor">;
+export type { WorkspaceMode } from "./reading-mode-logic";
 
 type AgentDraftArtifactProps = {
   draft: LyricsLearningDraft;
@@ -23,6 +27,7 @@ type AgentDraftArtifactProps = {
   onSelectedLineIndexChange: (index: number) => void;
   reviewSaveError: string | null;
   reviewSaveState: "clean" | "unsaved" | "saving" | "saved" | "error";
+  readingModeBeforeEditor: ReadingWorkspaceMode;
   selectedLineIndex: number;
 };
 
@@ -58,26 +63,6 @@ function shouldShowSaveState(
   return reviewSaveState !== "clean";
 }
 
-function layoutModeForReadingMode(mode: ReadingWorkspaceMode): SongSheetLayoutMode {
-  if (mode === "overview") {
-    return "compact";
-  }
-  if (mode === "sing_along") {
-    return "sing_along";
-  }
-  return "continuous";
-}
-
-function readingModeForLayoutMode(layoutMode: SongSheetLayoutMode): ReadingWorkspaceMode {
-  if (layoutMode === "compact") {
-    return "overview";
-  }
-  if (layoutMode === "sing_along") {
-    return "sing_along";
-  }
-  return "reader";
-}
-
 export default function AgentDraftArtifact({
   draft,
   hasLocalDraft,
@@ -90,6 +75,7 @@ export default function AgentDraftArtifact({
   onSelectedLineIndexChange,
   reviewSaveError,
   reviewSaveState,
+  readingModeBeforeEditor,
   selectedLineIndex,
 }: AgentDraftArtifactProps) {
   const {
@@ -125,9 +111,7 @@ export default function AgentDraftArtifact({
 
   function toggleEditorMode() {
     onModeChange(
-      mode === "editor"
-        ? readingModeForLayoutMode(songSheetSettings.layoutMode)
-        : "editor",
+      mode === "editor" ? modeAfterEditor(readingModeBeforeEditor) : "editor",
     );
   }
 

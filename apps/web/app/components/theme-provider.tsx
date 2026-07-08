@@ -11,33 +11,21 @@ import {
 } from "react";
 
 import {
-  songSheetLayoutModeDefault,
-  songSheetOriginalTextSizeDefault,
-  songSheetOriginalTextSizeMax,
-  songSheetOriginalTextSizeMin,
-  applicationThemes,
   getApplicationSettings,
   updateApplicationSettings,
-  type ApplicationSettings,
   type ApplicationTheme,
   type SongSheetSettings,
-  type SongSheetLayoutMode,
 } from "@/lib/api";
-
-export const applicationSettingsCacheKey = "aotune.application-settings-cache.v1";
-export const legacyThemeCacheKey = "aotune.theme-cache";
-
-const defaultDisplaySettings: CachedDisplaySettings = {
-  theme: "light",
-  lyricsLearning: {
-    songSheet: {
-      showRomaji: true,
-      showTranslation: true,
-      originalTextSize: songSheetOriginalTextSizeDefault,
-      layoutMode: songSheetLayoutModeDefault,
-    },
-  },
-};
+import {
+  applicationSettingsCacheKey,
+  defaultDisplaySettings,
+  displaySettingsFromResponse,
+  isApplicationTheme,
+  legacyThemeCacheKey,
+  mergeDisplaySettings,
+  validateCachedSettings,
+  type CachedDisplaySettings,
+} from "./application-settings-cache";
 
 export type ThemeOption = {
   theme: ApplicationTheme;
@@ -95,80 +83,23 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-type CachedDisplaySettings = Omit<ApplicationSettings, "updatedAt">;
+type DisplaySettingField =
+  | "theme"
+  | "showRomaji"
+  | "showTranslation"
+  | "originalTextSize"
+  | "layoutMode";
+type SongSheetSettingField = Exclude<DisplaySettingField, "theme">;
 
-function isApplicationTheme(value: unknown): value is ApplicationTheme {
-  if (typeof value !== "string") {
-    return false;
-  }
-  return applicationThemes.includes(value as ApplicationTheme);
-}
+type DisplaySettingFieldVersions = Record<DisplaySettingField, number>;
 
-function isBoolean(value: unknown): value is boolean {
-  return typeof value === "boolean";
-}
-
-function isSongSheetLayoutMode(value: unknown): value is SongSheetLayoutMode {
-  return value === "continuous" || value === "compact" || value === "sing_along";
-}
-
-function isOriginalTextSize(value: unknown): value is number {
-  return (
-    typeof value === "number" &&
-    Number.isInteger(value) &&
-    value >= songSheetOriginalTextSizeMin &&
-    value <= songSheetOriginalTextSizeMax
-  );
-}
-
-function validateCachedSettings(value: unknown): CachedDisplaySettings | null {
-  if (typeof value !== "object" || value === null) {
-    return null;
-  }
-
-  const candidate = value as Partial<CachedDisplaySettings>;
-  const songSheet = candidate.lyricsLearning?.songSheet;
-  if (
-    !isApplicationTheme(candidate.theme) ||
-    !songSheet ||
-    !isBoolean(songSheet.showRomaji) ||
-    !isBoolean(songSheet.showTranslation)
-  ) {
-    return null;
-  }
-
-  return {
-    theme: candidate.theme,
-    lyricsLearning: {
-      songSheet: {
-        showRomaji: songSheet.showRomaji,
-        showTranslation: songSheet.showTranslation,
-        originalTextSize: isOriginalTextSize(songSheet.originalTextSize)
-          ? songSheet.originalTextSize
-          : songSheetOriginalTextSizeDefault,
-        layoutMode: isSongSheetLayoutMode(songSheet.layoutMode)
-          ? songSheet.layoutMode
-          : songSheetLayoutModeDefault,
-      },
-    },
-  };
-}
-
-function displaySettingsFromResponse(
-  settings: ApplicationSettings,
-): CachedDisplaySettings {
-  return {
-    theme: settings.theme,
-    lyricsLearning: {
-      songSheet: {
-        showRomaji: settings.lyricsLearning.songSheet.showRomaji,
-        showTranslation: settings.lyricsLearning.songSheet.showTranslation,
-        originalTextSize: settings.lyricsLearning.songSheet.originalTextSize,
-        layoutMode: settings.lyricsLearning.songSheet.layoutMode,
-      },
-    },
-  };
-}
+const initialFieldVersions: DisplaySettingFieldVersions = {
+  theme: 0,
+  showRomaji: 0,
+  showTranslation: 0,
+  originalTextSize: 0,
+  layoutMode: 0,
+};
 
 function cachedDisplaySettings(): CachedDisplaySettings {
   if (typeof window === "undefined") {
@@ -236,7 +167,123 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [isSavingTheme, setIsSavingTheme] = useState(false);
   const [pendingSongSheetUpdates, setPendingSongSheetUpdates] = useState(0);
   const [updateError, setUpdateError] = useState<string | null>(null);
-  const songSheetUpdateRequestRef = useRef(0);
+  const settingsRef = useRef(settings);
+  const fieldVersionsRef = useRef<DisplaySettingFieldVersions>({
+    ...initialFieldVersions,
+  });
+
+  function applyDisplaySettings(nextSettings: CachedDisplaySettings) {
+    settingsRef.current = nextSettings;
+    setSettings(nextSettings);
+    setCurrentTheme(nextSettings.theme);
+    cacheDisplaySettings(nextSettings);
+  }
+
+  function nextFieldVersion(field: DisplaySettingField) {
+    const nextVersion = fieldVersionsRef.current[field] + 1;
+    fieldVersionsRef.current = {
+      ...fieldVersionsRef.current,
+      [field]: nextVersion,
+    };
+    return nextVersion;
+  }
+
+  function assignSongSheetSetting(
+    target: Partial<SongSheetSettings>,
+    field: SongSheetSettingField,
+    value: SongSheetSettings[SongSheetSettingField],
+  ) {
+    if (field === "showRomaji") {
+      target.showRomaji = value as SongSheetSettings["showRomaji"];
+      return;
+    }
+    if (field === "showTranslation") {
+      target.showTranslation = value as SongSheetSettings["showTranslation"];
+      return;
+    }
+    if (field === "originalTextSize") {
+      target.originalTextSize = value as SongSheetSettings["originalTextSize"];
+      return;
+    }
+    target.layoutMode = value as SongSheetSettings["layoutMode"];
+  }
+
+  function rollbackUnchangedFields(
+    requestedVersions: Partial<DisplaySettingFieldVersions>,
+    previousSettings: CachedDisplaySettings,
+  ) {
+    const currentSettings = settingsRef.current;
+    const songSheetRollback: Partial<SongSheetSettings> = {};
+    let shouldRollbackSongSheet = false;
+    let shouldRollbackTheme = false;
+
+    if (
+      requestedVersions.theme !== undefined &&
+      fieldVersionsRef.current.theme === requestedVersions.theme
+    ) {
+      shouldRollbackTheme = true;
+    }
+
+    for (const field of [
+      "showRomaji",
+      "showTranslation",
+      "originalTextSize",
+      "layoutMode",
+    ] as const) {
+      if (
+        requestedVersions[field] !== undefined &&
+        fieldVersionsRef.current[field] === requestedVersions[field]
+      ) {
+        assignSongSheetSetting(
+          songSheetRollback,
+          field,
+          previousSettings.lyricsLearning.songSheet[field],
+        );
+        shouldRollbackSongSheet = true;
+      }
+    }
+
+    if (!shouldRollbackTheme && !shouldRollbackSongSheet) {
+      return;
+    }
+
+    applyDisplaySettings(
+      mergeDisplaySettings(currentSettings, {
+        theme: shouldRollbackTheme ? previousSettings.theme : undefined,
+        songSheet: shouldRollbackSongSheet ? songSheetRollback : undefined,
+      }),
+    );
+  }
+
+  function mergeUntouchedFieldsFromResponse(
+    responseSettings: CachedDisplaySettings,
+  ) {
+    const currentSettings = settingsRef.current;
+    const versions = fieldVersionsRef.current;
+    const songSheetUpdate: Partial<SongSheetSettings> = {};
+
+    if (versions.showRomaji === 0) {
+      songSheetUpdate.showRomaji =
+        responseSettings.lyricsLearning.songSheet.showRomaji;
+    }
+    if (versions.showTranslation === 0) {
+      songSheetUpdate.showTranslation =
+        responseSettings.lyricsLearning.songSheet.showTranslation;
+    }
+    if (versions.originalTextSize === 0) {
+      songSheetUpdate.originalTextSize =
+        responseSettings.lyricsLearning.songSheet.originalTextSize;
+    }
+    if (versions.layoutMode === 0) {
+      songSheetUpdate.layoutMode =
+        responseSettings.lyricsLearning.songSheet.layoutMode;
+    }
+
+    return mergeDisplaySettings(currentSettings, {
+      theme: versions.theme === 0 ? responseSettings.theme : undefined,
+      songSheet: songSheetUpdate,
+    });
+  }
 
   useEffect(() => {
     applyTheme(currentTheme);
@@ -252,11 +299,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         if (!isMounted) {
           return;
         }
-        const nextSettings = displaySettingsFromResponse(response);
-        setSettings(nextSettings);
-        setCurrentTheme(nextSettings.theme);
-        setPersistedTheme(nextSettings.theme);
-        cacheDisplaySettings(nextSettings);
+        const responseSettings = displaySettingsFromResponse(response);
+        const nextSettings = mergeUntouchedFieldsFromResponse(responseSettings);
+        applyDisplaySettings(nextSettings);
+        if (fieldVersionsRef.current.theme === 0) {
+          setPersistedTheme(responseSettings.theme);
+        }
         setUpdateError(null);
       } catch {
         if (!isMounted) {
@@ -296,45 +344,48 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const previousSettings = settings;
-        setCurrentTheme(theme);
-        const optimisticSettings = { ...settings, theme };
-        setSettings(optimisticSettings);
-        cacheDisplaySettings(optimisticSettings);
+        const previousSettings = settingsRef.current;
+        const themeVersion = nextFieldVersion("theme");
+        const optimisticSettings = mergeDisplaySettings(previousSettings, {
+          theme,
+        });
+        applyDisplaySettings(optimisticSettings);
         setIsSavingTheme(true);
         setUpdateError(null);
 
         try {
           const response = await updateApplicationSettings({ theme });
-          const nextSettings = displaySettingsFromResponse(response);
-          setSettings(nextSettings);
-          setCurrentTheme(nextSettings.theme);
-          setPersistedTheme(nextSettings.theme);
-          cacheDisplaySettings(nextSettings);
+          const responseSettings = displaySettingsFromResponse(response);
+          if (fieldVersionsRef.current.theme === themeVersion) {
+            applyDisplaySettings(
+              mergeDisplaySettings(settingsRef.current, {
+                theme: responseSettings.theme,
+              }),
+            );
+            setPersistedTheme(responseSettings.theme);
+          }
         } catch {
-          setSettings(previousSettings);
-          setCurrentTheme(previousSettings.theme);
-          cacheDisplaySettings(previousSettings);
+          rollbackUnchangedFields({ theme: themeVersion }, previousSettings);
           setUpdateError("Theme could not be saved. Restored the previous theme.");
         } finally {
           setIsSavingTheme(false);
         }
       },
       setSongSheetSettings: async (songSheetUpdate: Partial<SongSheetSettings>) => {
-        const requestId = songSheetUpdateRequestRef.current + 1;
-        songSheetUpdateRequestRef.current = requestId;
-        const previousSettings = settings;
-        const optimisticSettings = {
-          ...settings,
-          lyricsLearning: {
-            songSheet: {
-              ...settings.lyricsLearning.songSheet,
-              ...songSheetUpdate,
-            },
-          },
-        };
-        setSettings(optimisticSettings);
-        cacheDisplaySettings(optimisticSettings);
+        const previousSettings = settingsRef.current;
+        const requestedVersions: Partial<DisplaySettingFieldVersions> = {};
+        for (const field of Object.keys(songSheetUpdate) as Array<
+          keyof SongSheetSettings
+        >) {
+          if (songSheetUpdate[field] !== undefined) {
+            requestedVersions[field] = nextFieldVersion(field);
+          }
+        }
+        applyDisplaySettings(
+          mergeDisplaySettings(previousSettings, {
+            songSheet: songSheetUpdate,
+          }),
+        );
         setPendingSongSheetUpdates((current) => current + 1);
         setUpdateError(null);
 
@@ -344,23 +395,36 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
               songSheet: songSheetUpdate,
             },
           });
-          if (requestId !== songSheetUpdateRequestRef.current) {
-            return;
+          const responseSettings = displaySettingsFromResponse(response);
+          const confirmedSongSheet: Partial<SongSheetSettings> = {};
+          let shouldApplyConfirmedSongSheet = false;
+          for (const field of Object.keys(songSheetUpdate) as Array<
+            keyof SongSheetSettings
+          >) {
+            if (
+              requestedVersions[field] !== undefined &&
+              fieldVersionsRef.current[field] === requestedVersions[field]
+            ) {
+              assignSongSheetSetting(
+                confirmedSongSheet,
+                field,
+                responseSettings.lyricsLearning.songSheet[field],
+              );
+              shouldApplyConfirmedSongSheet = true;
+            }
           }
-          const nextSettings = displaySettingsFromResponse(response);
-          setSettings(nextSettings);
-          setCurrentTheme(nextSettings.theme);
-          setPersistedTheme(nextSettings.theme);
-          cacheDisplaySettings(nextSettings);
-        } catch {
-          if (requestId === songSheetUpdateRequestRef.current) {
-            setSettings(previousSettings);
-            setCurrentTheme(previousSettings.theme);
-            cacheDisplaySettings(previousSettings);
-            setUpdateError(
-              "Song Sheet display settings could not be saved. Restored the previous display.",
+          if (shouldApplyConfirmedSongSheet) {
+            applyDisplaySettings(
+              mergeDisplaySettings(settingsRef.current, {
+                songSheet: confirmedSongSheet,
+              }),
             );
           }
+        } catch {
+          rollbackUnchangedFields(requestedVersions, previousSettings);
+          setUpdateError(
+            "Song Sheet display settings could not be saved. Restored the previous display.",
+          );
         } finally {
           setPendingSongSheetUpdates((current) => Math.max(current - 1, 0));
         }
